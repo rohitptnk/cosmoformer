@@ -1,0 +1,1 @@
+CosmoFormer Training Details
