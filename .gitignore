@@ -1,0 +1,88 @@
+# ---------------------------
+# Python
+# ---------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.dist-info/
+
+# Virtual environments
+.env/
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# ---------------------------
+# CosmoFormer Project
+# ---------------------------
+
+# Data (never commit)
+data/raw/
+data/processed/
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# Experiment outputs
+experiments/
+logs/
+checkpoints/
+runs/
+outputs/
+plots/
+
+# Model weights
+*.pt
+*.pth
+*.ckpt
+
+# CAMB / Healpy / PySM generated files
+camb_output/
+pysm_output/
+healpy_output/
+*.fits
+
+# Temporary or cache files
+tmp/
+temp/
+**/cache/
+**/__cache__/
+
+# ---------------------------
+# Environment / Secrets
+# ---------------------------
+.env
+*.env
+*.secret
+*.key
+
+# ---------------------------
+# OS / Editor Junk
+# ---------------------------
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# VSCode
+.vscode/
+.history/
+
+# PyCharm
+.idea/
+
+# ---------------------------
+# Logs
+# ---------------------------
+*.log
+
