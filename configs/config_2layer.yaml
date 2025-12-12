@@ -1,0 +1,76 @@
+experiment:
+  name: cosmoformer_2layer
+  seed: 42
+  device: cuda
+
+data:
+  data_dir: ./data
+  raw_dir: ./data/raw
+  processed_dir: ./data/processed
+  seq_len: 48
+  num_workers: 4
+  pin_memory: true
+
+model:
+  d_model: 512
+  n_heads: 8
+  d_ff: 2048
+  activation: gelu
+  dropout: 0.1
+  pre_ln: true
+  n_layers: 2
+  output_heads: ["mean", "logvar"]
+
+training:
+  epochs: 200
+  batch_size: 64
+  amp: true
+  grad_clip: 1.0
+  grad_checkpointing: false
+  accumulate_grad_batches: 1
+  eval_interval_steps: 500
+  checkpoint_interval_epochs: 1
+  save_best_only: true
+  max_checkpoints: 5
+
+optimizer:
+  name: AdamW
+  lr: 1e-4
+  weight_decay: 1e-4
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+scheduler:
+  name: cosine_with_warmup
+  warmup_steps: 1000
+  total_steps: null
+  min_lr: 1e-7
+
+loss:
+  type: heteroscedastic
+  hetero:
+    target_logvar: true
+    clamp_logvar: true
+    logvar_clamp_min: -20.0
+    logvar_clamp_max: 20.0
+
+logging:
+  use_mlflow: true
+  mlflow:
+    tracking_uri: file:./mlruns
+    experiment_name: cosmoformer
+    run_name: cosmoformer_2layer
+    autolog: true
+    log_artifacts: true
+    artifact_subdir: artifacts
+
+checkpoint:
+  experiments_dir: ./experiments/cosmoformer_2layer
+  resume: false
+  resume_path: null
+  save_prefix: cosmoformer_2layer
+
+misc:
+  deterministic: true
+  omp_num_threads: 8
+  print_interval_steps: 100
