@@ -13,6 +13,9 @@ from torch.amp.grad_scaler import GradScaler
 from src.data.dataset import ClDataset
 from src.models.transformer import Transformer1DAutoencoder
 
+from src.utils.checkpoint import save_checkpoint, load_checkpoint
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
+
 
 # Loss Functions
 def mse_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -23,11 +26,6 @@ def heteroscedastic_loss(
     logvar: torch.Tensor,
     target: torch.Tensor,
 ) -> torch.Tensor:
-    """
-    Kendall & Gal heteroscedastic regression loss:
-        exp(-s) * (y - μ)^2 + s
-    where s = log variance
-    """
     return torch.mean(torch.exp(-logvar) * (target-mean) ** 2 + logvar)   
 
 
@@ -36,6 +34,7 @@ def train_one_epoch(
     model: nn.Module,
     loader: DataLoader,
     optimizer: torch.optim.Optimizer,
+    scheduler,
     scaler: Optional[GradScaler],
     device: torch.device,
     use_amp: bool,
@@ -71,6 +70,9 @@ def train_one_epoch(
             )
             loss.backward()
             optimizer.step()
+
+        if scheduler is not None:
+            scheduler.step()
 
         total_loss += loss.item()
 
@@ -117,6 +119,8 @@ def train(
     use_amp: bool = True,
     num_workers: int = 4,
     seed: int = 42,
+    resume_from: str | None = None,
+    checkpoint_dir: str = "checkpoints",
 ):
     torch.manual_seed(seed)
 
@@ -165,13 +169,49 @@ def train(
 
     scaler = GradScaler() if use_amp else None
 
+    # Scheduler
+    steps_per_epoch = len(train_loader)
+    total_steps = epochs * steps_per_epoch
+    warmup_steps = max(1, int(0.05 * total_steps))
+
+    warmup = LinearLR(
+        optimizer,
+        start_factor=0.0,
+        end_factor=1.0,
+        total_iters=warmup_steps,
+    )
+
+    cosine = CosineAnnealingLR(
+        optimizer,
+        T_max=total_steps - warmup_steps,
+        eta_min=0.0,
+    )
+
+    scheduler = SequentialLR(
+        optimizer,
+        schedulers=[warmup, cosine],
+        milestones=[warmup_steps],
+    )
+
+    # Resume
+    start_epoch=1
+    if resume_from is not None:
+        print(f"Resuming from checkpoint: {resume_from}")
+        start_epoch = load_checkpoint(
+            resume_from,
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            map_location=device,
+        ) + 1
 
     # Training Loop
-    for epoch in range(1, epochs+1):
+    for epoch in range(start_epoch, epochs+1):
         train_loss = train_one_epoch(
             model,
             train_loader,
             optimizer,
+            scheduler,
             scaler,
             device,
             use_amp,
@@ -182,6 +222,14 @@ def train(
             f"Epoch {epoch:03d} | "
             f"Train Loss: {train_loss:.6f} |"
             f"Val Loss: {val_loss:.6f}"
+        )
+
+        save_checkpoint(
+            path=f"{checkpoint_dir}/epoch_{epoch:03d}.pt",
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            epoch=epoch,
         )
 
     return model
