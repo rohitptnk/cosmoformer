@@ -17,19 +17,9 @@ from src.utils.checkpoint import save_checkpoint, load_checkpoint
 from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
 import mlflow
-from src.utils.mlflow_utils import setup_mlflow, log_params_flat
-
-
-# Loss Functions
-def mse_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    return torch.mean((pred-target)**2)
-
-def heteroscedastic_loss(
-    mean: torch.Tensor,
-    logvar: torch.Tensor,
-    target: torch.Tensor,
-) -> torch.Tensor:
-    return torch.mean(torch.exp(-logvar) * (target-mean) ** 2 + logvar)   
+from src.utils.mlflow_utils import setup_mlflow
+from src.utils.scheduler import build_scheduler
+from src.utils.losses import build_loss
 
 
 # Training / validation loops
@@ -41,6 +31,7 @@ def train_one_epoch(
     scaler: Optional[GradScaler],
     device: torch.device,
     use_amp: bool,
+    loss_fn,
 ) -> float:
     model.train()
     total_loss = 0.0
@@ -54,11 +45,7 @@ def train_one_epoch(
         if use_amp:
             with autocast(device_type="cuda"):
                 mean, logvar = model(x)
-                loss = (
-                    heteroscedastic_loss(mean, logvar, y)
-                    if logvar is not None
-                    else mse_loss(mean, y)
-                )
+                loss = (loss_fn(mean, logvar, y))
             
             assert scaler is not None
             scaler.scale(loss).backward()
@@ -66,11 +53,7 @@ def train_one_epoch(
             scaler.update()
         else:
             mean, logvar = model(x)
-            loss = (
-                heteroscedastic_loss(mean, logvar, y)
-                if logvar is not None
-                else mse_loss(mean, y)
-            )
+            loss = (loss_fn(mean, logvar, y))
             loss.backward()
             optimizer.step()
 
@@ -87,6 +70,7 @@ def validate(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
+    loss_fn,
 ) -> float:
     model.eval()
     total_loss = 0.0
@@ -96,44 +80,61 @@ def validate(
         y = y.to(device)
 
         mean, logvar = model(x)
-        loss = (
-            heteroscedastic_loss(mean, logvar, y)
-            if logvar is not None
-            else mse_loss(mean, y)
-        )
+        loss = (loss_fn(mean, logvar, y))
         total_loss += loss.item()
 
     return total_loss / len(loader)
 
 
 # Main training entry
-def train(
-    data_dir: str | Path,
-    seq_len: int,
-    d_model: int = 512,
-    n_heads: int = 8,
-    d_ff: int = 2048,
-    n_layers: int = 2,
-    batch_size: int = 64,
-    lr: float = 1e-4,
-    epochs: int = 20,
-    dropout: float = 0.1,
-    predict_variance: bool = True,
-    use_amp: bool = True,
-    num_workers: int = 4,
-    seed: int = 42,
-    resume_from: str | None = None,
-    checkpoint_dir: str = "checkpoints",
-):
-    torch.manual_seed(seed)
+def train(cfg: dict):
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Load Config
+    exp_cfg = cfg["experiment"]
+    data_cfg = cfg["data"]
+    model_cfg = cfg["model"]
+    train_cfg = cfg["training"]
+    log_cfg = cfg["logging"]
+    optim_cfg = cfg["optimizer"]
+    sched_cfg = cfg["scheduler"]
+    ckpt_cfg = cfg["checkpoint"]
+
+    seed = exp_cfg["seed"]
+    device = exp_cfg["device"]
+
+    data_dir = data_cfg["processed_dir"]
+    seq_len = data_cfg["seq_len"]
+    pin_memory = data_cfg["pin_memory"]
+    num_workers = data_cfg["num_workers"]
+    batch_size = data_cfg["batch_size"]
+
+    d_model = model_cfg['d_model']
+    n_heads = model_cfg['n_heads']
+    d_ff = model_cfg['d_ff']
+    n_layers = model_cfg['n_layers']
+    dropout = model_cfg['dropout']
+    predict_variance = model_cfg['predict_variance']
+
+    use_amp = train_cfg["use_amp"] and device.type == "cuda"
+    epochs = train_cfg["epochs"]
+
+    optim_name = optim_cfg["name"]
+    lr = optim_cfg["lr"]
+    weight_decay = optim_cfg["weight_decay"]
+
+    use_mlflow = log_cfg["use_mlflow"]
+    experiment_name = log_cfg["experiment_name"]
+    run_name = log_cfg["run_name"]    
+
+    resume_from = ckpt_cfg["resume_from"]
+    checkpoint_dir = ckpt_cfg["checkpoint_dir"]
+    loss_fn = build_loss(cfg)
+
+
+    # Set Values
+    torch.manual_seed(seed=seed)
+    device = torch.device(device=device)
     print(f"Using device: {device}")
-
-    use_amp = use_amp and device.type == "cuda"
-    use_mlflow = True
-    experiment_name = "cosmoformer"
-    run_name = f"{n_layers}L_d{d_model}"
 
     mlflow_run = None
     if use_mlflow:
@@ -144,9 +145,8 @@ def train(
 
         run_id = mlflow_run.info.run_id
         print(f"MLflow run_id: {run_id}")
+        mlflow.log_artifact(config_path, artifact_path="config")
 
-        with open("last_run_id.txt", "w") as f:
-            f.write(run_id)
 
     # Datasets
     train_ds = ClDataset(data_dir, split="train")
@@ -157,7 +157,7 @@ def train(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory,
     )
 
     val_loader = DataLoader(
@@ -165,7 +165,7 @@ def train(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=pin_memory,
     )
 
 
@@ -180,51 +180,32 @@ def train(
         predict_variance=predict_variance,
     ).to(device)
 
-    optimizer = torch.optim.AdamW(
+    # ---------- OPTIMIZER ----------
+    OPTIMIZERS = {
+        "AdamW": torch.optim.AdamW,
+        "Adam": torch.optim.Adam,
+        "SGD": torch.optim.SGD,
+    }
+    if optim_name not in OPTIMIZERS:
+        raise ValueError(f"Unsupported Optimizer: {optim_name}")
+    
+    optim_cls = OPTIMIZERS[optim_name]
+    optimizer = optim_cls(
         model.parameters(),
         lr=lr,
-        weight_decay=1e-4,
+        weight_decay=weight_decay,
     )
-
-    if use_mlflow:
-        log_params_flat({
-            "seq_len": seq_len,
-            "d_model": d_model,
-            "n_heads": n_heads,
-            "d_ff": d_ff,
-            "n_layers": n_layers,
-            "batch_size": batch_size,
-            "lr": lr,
-            "epochs": epochs,
-            "dropout": dropout,
-            "predict_variance": predict_variance,
-            "use_amp": use_amp,
-        })
 
     scaler = GradScaler() if use_amp else None
 
-    # Scheduler
+    # ---------- Scheduler ----------
     steps_per_epoch = len(train_loader)
     total_steps = epochs * steps_per_epoch
-    warmup_steps = max(1, int(0.05 * total_steps))
 
-    warmup = LinearLR(
-        optimizer,
-        start_factor=0.0,
-        end_factor=1.0,
-        total_iters=warmup_steps,
-    )
-
-    cosine = CosineAnnealingLR(
-        optimizer,
-        T_max=total_steps - warmup_steps,
-        eta_min=0.0,
-    )
-
-    scheduler = SequentialLR(
-        optimizer,
-        schedulers=[warmup, cosine],
-        milestones=[warmup_steps],
+    scheduler = build_scheduler(
+        optimizer=optimizer,
+        scheduler_cfg=sched_cfg,
+        total_steps=total_steps
     )
 
     # Resume
@@ -240,6 +221,7 @@ def train(
         ) + 1
 
     # Training Loop
+    best_val_loss = float("inf")
     for epoch in range(start_epoch, epochs+1):
         train_loss = train_one_epoch(
             model,
@@ -249,8 +231,9 @@ def train(
             scaler,
             device,
             use_amp,
+            loss_fn,
         )
-        val_loss = validate(model, val_loader, device)
+        val_loss = validate(model, val_loader, device, loss_fn)
 
         print(
             f"Epoch {epoch:03d} | "
@@ -261,22 +244,25 @@ def train(
         if use_mlflow:
             mlflow.log_metric("train_loss", train_loss, step=epoch)
             mlflow.log_metric("val_loss", val_loss, step=epoch)
-            mlflow.log_metric("lr", optimizer.param_groups[0]["lr"], step=epoch)
 
-        save_checkpoint(
-            path=f"{checkpoint_dir}/epoch_{epoch:03d}.pt",
-            model=model,
-            optimizer=optimizer,
-            scaler=scaler,
-            epoch=epoch,
-        )
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            print(f"New best model found (val_loss={val_loss:.6f}). Saving checkpoint.")
 
-        if use_mlflow:
-            mlflow.log_artifact(
-                f"{checkpoint_dir}/epoch_{epoch:03d}.pt",
-                artifact_path="checkpoints",
+            save_checkpoint(
+                path=f"{checkpoint_dir}/best_model.pt",
+                model=model,
+                optimizer=optimizer,
+                scaler=scaler,
+                epoch=epoch,
             )
-
+        
+            if use_mlflow:
+                mlflow.log_artifact(
+                    f"{checkpoint_dir}/best_model.pt",
+                    artifact_path="checkpoints",
+                )
+                
     if use_mlflow:
         mlflow.end_run()
 
@@ -285,11 +271,8 @@ def train(
 
 # Script usage
 if __name__ == "__main__":
-    train(
-        data_dir="data/processed",
-        seq_len=32,
-        n_layers=2,
-        predict_variance=True,
-        use_amp=True,
-        epochs=10,
-    )
+    from utils.config_utils import load_config
+
+    config_path = "configs/config_2layer.yaml"
+    cfg = load_config(config_path)
+    train(cfg)
