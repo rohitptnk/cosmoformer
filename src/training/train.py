@@ -16,6 +16,9 @@ from src.models.transformer import Transformer1DAutoencoder
 from src.utils.checkpoint import save_checkpoint, load_checkpoint
 from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
+import mlflow
+from src.utils.mlflow_utils import setup_mlflow, log_params_flat
+
 
 # Loss Functions
 def mse_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -128,6 +131,22 @@ def train(
     print(f"Using device: {device}")
 
     use_amp = use_amp and device.type == "cuda"
+    use_mlflow = True
+    experiment_name = "cosmoformer"
+    run_name = f"{n_layers}L_d{d_model}"
+
+    mlflow_run = None
+    if use_mlflow:
+        mlflow_run = setup_mlflow(
+            experiment_name=experiment_name,
+            run_name=run_name,
+        )
+
+        run_id = mlflow_run.info.run_id
+        print(f"MLflow run_id: {run_id}")
+
+        with open("last_run_id.txt", "w") as f:
+            f.write(run_id)
 
     # Datasets
     train_ds = ClDataset(data_dir, split="train")
@@ -166,6 +185,21 @@ def train(
         lr=lr,
         weight_decay=1e-4,
     )
+
+    if use_mlflow:
+        log_params_flat({
+            "seq_len": seq_len,
+            "d_model": d_model,
+            "n_heads": n_heads,
+            "d_ff": d_ff,
+            "n_layers": n_layers,
+            "batch_size": batch_size,
+            "lr": lr,
+            "epochs": epochs,
+            "dropout": dropout,
+            "predict_variance": predict_variance,
+            "use_amp": use_amp,
+        })
 
     scaler = GradScaler() if use_amp else None
 
@@ -224,6 +258,11 @@ def train(
             f"Val Loss: {val_loss:.6f}"
         )
 
+        if use_mlflow:
+            mlflow.log_metric("train_loss", train_loss, step=epoch)
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+            mlflow.log_metric("lr", optimizer.param_groups[0]["lr"], step=epoch)
+
         save_checkpoint(
             path=f"{checkpoint_dir}/epoch_{epoch:03d}.pt",
             model=model,
@@ -231,6 +270,15 @@ def train(
             scaler=scaler,
             epoch=epoch,
         )
+
+        if use_mlflow:
+            mlflow.log_artifact(
+                f"{checkpoint_dir}/epoch_{epoch:03d}.pt",
+                artifact_path="checkpoints",
+            )
+
+    if use_mlflow:
+        mlflow.end_run()
 
     return model
 
