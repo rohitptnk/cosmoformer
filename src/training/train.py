@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from typing import Optional
 
 import torch
@@ -14,7 +12,6 @@ from src.data.dataset import ClDataset
 from src.models.transformer import Transformer1DAutoencoder
 
 from src.utils.checkpoint import save_checkpoint, load_checkpoint
-from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
 import mlflow
 from src.utils.mlflow_utils import setup_mlflow
@@ -43,7 +40,7 @@ def train_one_epoch(
         optimizer.zero_grad(set_to_none=True)
 
         if use_amp:
-            with autocast(device_type="cuda"):
+            with autocast(device_type=device.type):
                 mean, logvar = model(x)
                 loss = (loss_fn(mean, logvar, y))
             
@@ -87,7 +84,9 @@ def validate(
 
 
 # Main training entry
-def train(cfg: dict):
+def train(config_path: str):
+
+    cfg = load_config(config_path)
 
     # Load Config
     exp_cfg = cfg["experiment"]
@@ -100,13 +99,14 @@ def train(cfg: dict):
     ckpt_cfg = cfg["checkpoint"]
 
     seed = exp_cfg["seed"]
-    device = exp_cfg["device"]
+    device_str = exp_cfg["device"]
+    device = torch.device(device=device_str)
+    print(f"Using device: {device}")
 
     data_dir = data_cfg["processed_dir"]
     seq_len = data_cfg["seq_len"]
     pin_memory = data_cfg["pin_memory"]
     num_workers = data_cfg["num_workers"]
-    batch_size = data_cfg["batch_size"]
 
     d_model = model_cfg['d_model']
     n_heads = model_cfg['n_heads']
@@ -117,14 +117,15 @@ def train(cfg: dict):
 
     use_amp = train_cfg["use_amp"] and device.type == "cuda"
     epochs = train_cfg["epochs"]
+    batch_size = train_cfg["batch_size"]
 
     optim_name = optim_cfg["name"]
     lr = optim_cfg["lr"]
     weight_decay = optim_cfg["weight_decay"]
 
     use_mlflow = log_cfg["use_mlflow"]
-    experiment_name = log_cfg["experiment_name"]
-    run_name = log_cfg["run_name"]    
+    experiment_name = log_cfg["mlflow"]["experiment_name"]
+    run_name = log_cfg["mlflow"]["run_name"]    
 
     resume_from = ckpt_cfg["resume_from"]
     checkpoint_dir = ckpt_cfg["checkpoint_dir"]
@@ -133,8 +134,7 @@ def train(cfg: dict):
 
     # Set Values
     torch.manual_seed(seed=seed)
-    device = torch.device(device=device)
-    print(f"Using device: {device}")
+    
 
     mlflow_run = None
     if use_mlflow:
@@ -209,19 +209,22 @@ def train(cfg: dict):
     )
 
     # Resume
+    best_val_loss = float("inf")
     start_epoch=1
     if resume_from is not None:
         print(f"Resuming from checkpoint: {resume_from}")
-        start_epoch = load_checkpoint(
+        last_epoch, best_val_loss = load_checkpoint(
             resume_from,
             model=model,
             optimizer=optimizer,
             scaler=scaler,
             map_location=device,
-        ) + 1
+            scheduler=scheduler,
+        )
+        start_epoch = last_epoch + 1
 
     # Training Loop
-    best_val_loss = float("inf")
+    
     for epoch in range(start_epoch, epochs+1):
         train_loss = train_one_epoch(
             model,
@@ -255,6 +258,8 @@ def train(cfg: dict):
                 optimizer=optimizer,
                 scaler=scaler,
                 epoch=epoch,
+                best_val_loss=best_val_loss,
+                scheduler=scheduler,
             )
         
             if use_mlflow:
@@ -271,8 +276,7 @@ def train(cfg: dict):
 
 # Script usage
 if __name__ == "__main__":
-    from utils.config_utils import load_config
+    from src.utils.config_utils import load_config
 
     config_path = "configs/config_2layer.yaml"
-    cfg = load_config(config_path)
-    train(cfg)
+    train(config_path)

@@ -11,6 +11,8 @@ def save_checkpoint(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     epoch: int,
+    best_val_loss: float,
+    scheduler,
     scaler: Optional[GradScaler] = None,
 ):
     path = Path(path)
@@ -20,6 +22,8 @@ def save_checkpoint(
         "epoch": epoch,
         "model_state": model.state_dict(),
         "optimizer_state": optimizer.state_dict(),
+        "best_val_loss": best_val_loss,
+        "scheduler_state": scheduler.state_dict() if scheduler is not None else None,
     }
 
     if scaler is not None:
@@ -31,10 +35,11 @@ def save_checkpoint(
 def load_checkpoint(
     path: str | Path,
     model: nn.Module,
+    scheduler,
     optimizer: Optional[torch.optim.Optimizer] = None,
     scaler: Optional[GradScaler] = None,
     map_location: str | torch.device = "cpu",
-) -> int:
+):
     path = Path(path)
     ckpt = torch.load(path, map_location=map_location)
 
@@ -46,4 +51,10 @@ def load_checkpoint(
     if scaler is not None and "scaler_state" in ckpt:
         scaler.load_state_dict(ckpt["scaler_state"])
 
-    return ckpt.get("epoch", 0)
+    if scheduler is not None and ckpt.get("scheduler_state") is not None:
+        scheduler.load_state_dict(ckpt["scheduler_state"])
+
+    epoch = ckpt["epoch"]
+    best_val_loss = ckpt.get("best_val_loss", float("inf"))
+
+    return epoch, best_val_loss

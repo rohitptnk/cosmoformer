@@ -12,7 +12,7 @@ def build_scheduler(optimizer, scheduler_cfg, total_steps):
 
         warmup = LinearLR(
             optimizer,
-            start_factor=0.0,
+            start_factor=1e-3,
             end_factor=1.0,
             total_iters=warmup_steps,
         )

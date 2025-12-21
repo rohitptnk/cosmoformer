@@ -14,4 +14,17 @@ def load_config(path: str | Path) -> Dict[str, Any]:
     if cfg is None:
         raise ValueError(f"Config file is empty: {path}")
 
-    return cfg
+    try:
+        from .config_schema import Config as ConfigModel
+        from pydantic import ValidationError
+    except ImportError as e:
+        raise ImportError(
+            "pydantic is required for config validation. Install it with 'pip install pydantic>=1.10,<2'"
+        ) from e
+
+    try:
+        cfg_model = ConfigModel.model_validate(cfg)
+    except ValidationError as e:
+        raise ValueError(f"Config validation error:\n{e}") from e
+
+    return cfg_model.model_dump()

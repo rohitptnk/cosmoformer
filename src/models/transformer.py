@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import math
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 
@@ -20,7 +17,7 @@ class LearnablePositionalEncoding(nn.Module):
 
     def forward(self, x):
         # x shape: (batch, seq_len, d_model)
-        positions = self.positions[:, :x.size(1)].to(x.device)
+        positions = self.positions[:, :x.size(1)]
         pos_emb = self.pos_embedding(positions)  # (1, seq_len, d_model)
         return x + pos_emb
     
@@ -83,6 +80,12 @@ class Transformer1DAutoencoder(nn.Module):
         # x: (batch, seq_len)
         if x.dim() != 2:
             raise ValueError(f"Expected (B, L), got {x.shape}")
+        
+        if x.size(1) > self.seq_len:
+            raise ValueError(
+                f"Input sequence length {x.size(1)} exceeds model seq_len {self.seq_len}"
+            )
+
         
         x = x.unsqueeze(-1)  # (batch, seq_len, 1)
         x = self.input_proj(x)  # (batch, seq_len, d_model)
