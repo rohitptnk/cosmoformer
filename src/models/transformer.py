@@ -65,8 +65,11 @@ class Transformer1DAutoencoder(nn.Module):
         )
 
         # output heads
-        self.mean_head = nn.Linear(d_model, 1)
-        self.logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+        self.clean_mean_head = nn.Linear(d_model, 1)
+        self.clean_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+
+        self.noise_mean_head = nn.Linear(d_model, 1)
+        self.noise_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
 
         self._init_weights()
 
@@ -92,9 +95,14 @@ class Transformer1DAutoencoder(nn.Module):
         x = self.pos_encoder(x)  # add positional encoding
         x = self.encoder(x)      # Transformer Encoder
 
-        mean = self.mean_head(x).squeeze(-1)
-        logvar = None
-        if self.logvar_head is not None:
-            logvar = self.logvar_head(x).squeeze(-1)
+        clean_mean = self.clean_mean_head(x).squeeze(-1)
+        clean_logvar = None
+        if self.clean_logvar_head is not None:
+            clean_logvar = self.clean_logvar_head(x).squeeze(-1)
+
+        noise_mean = self.noise_mean_head(x).squeeze(-1)
+        noise_logvar = None
+        if self.noise_logvar_head is not None:
+            noise_logvar = self.noise_logvar_head(x).squeeze(-1)
             
-        return mean, logvar
+        return clean_mean, clean_logvar, noise_mean, noise_logvar

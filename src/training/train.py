@@ -33,24 +33,38 @@ def train_one_epoch(
     model.train()
     total_loss = 0.0
 
-    for x, y in loader:
+    for x, (y_clean, y_noise) in loader:
         x = x.to(device)
-        y = y.to(device)
-
+        y_clean = y_clean.to(device)
+        y_noise = y_noise.to(device)
         optimizer.zero_grad(set_to_none=True)
 
         if use_amp:
             with autocast(device_type=device.type):
-                mean, logvar = model(x)
-                loss = (loss_fn(mean, logvar, y))
+                clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+                loss = loss_fn(
+                    clean_mean, 
+                    clean_logvar, 
+                    noise_mean, 
+                    noise_logvar,
+                    y_clean,
+                    y_noise,
+                )
             
             assert scaler is not None
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
         else:
-            mean, logvar = model(x)
-            loss = (loss_fn(mean, logvar, y))
+            clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+            loss = loss_fn(
+                clean_mean, 
+                clean_logvar, 
+                noise_mean,
+                noise_logvar,
+                y_clean,
+                y_noise,
+            )
             loss.backward()
             optimizer.step()
 
@@ -72,12 +86,20 @@ def validate(
     model.eval()
     total_loss = 0.0
 
-    for x, y in loader:
+    for x, (y_clean, y_noise) in loader:
         x = x.to(device)
-        y = y.to(device)
+        y_clean = y_clean.to(device)
+        y_noise = y_noise.to(device)
 
-        mean, logvar = model(x)
-        loss = (loss_fn(mean, logvar, y))
+        clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+        loss = loss_fn(
+            clean_mean, 
+            clean_logvar, 
+            noise_mean,
+            noise_logvar,
+            y_clean,
+            y_noise,
+        )
         total_loss += loss.item()
 
     return total_loss / len(loader)

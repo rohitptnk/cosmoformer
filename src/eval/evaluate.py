@@ -15,7 +15,7 @@ import mlflow
 @torch.no_grad()
 def evaluate(
     data_dir: str | Path,
-    chechkpoint_path: str | Path,
+    checkpoint_path: str | Path,
     seq_len: int,
     d_model: int,
     n_heads: int,
@@ -27,7 +27,7 @@ def evaluate(
     run_id: str | None = None,
 ):
     if run_id is not None:
-        mlflow.start_run(run_id=run_id)
+        mlflow.start_run(run_id=run_id, nested=True)
     
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
 
@@ -37,7 +37,7 @@ def evaluate(
         val_ds,
         batch_size=batch_size,
         shuffle=False,
-        pin_memory=True,
+        pin_memory=(device.type == "cuda"),
     )
 
     # Model
@@ -52,7 +52,8 @@ def evaluate(
     ).to(device)
 
     load_checkpoint(
-        chechkpoint_path,
+        checkpoint_path,
+        scheduler=None,
         model=model,
         optimizer=None,
         scaler=None,
@@ -62,40 +63,68 @@ def evaluate(
     model.eval()
 
     # Storage
-    all_mean = []
-    all_logvar = []
-    all_true = []
+    all_clean_mean = []
+    all_clean_logvar = []
+    all_clean_true = []
 
-    for x,y in val_loader:
+    
+    all_noise_mean = []     # CHANGED
+    all_noise_logvar = []  # CHANGED
+    all_noise_true = []    # CHANGED
+
+    for x, (y_clean, y_noise) in val_loader:
         x = x.to(device)
-        y = y.to(device)
+        y_clean = y_clean.to(device)
+        y_noise = y_noise.to(device)
 
-        mean, logvar = model(x)
+        clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
 
-        all_mean.append(mean.cpu())
-        if logvar is not None:
-            all_logvar.append(logvar.cpu())
-        all_true.append(y.cpu())
+        all_clean_mean.append(clean_mean.cpu())
+        all_clean_true.append(y_clean.cpu())
+        if clean_logvar is not None:
+            all_clean_logvar.append(clean_logvar.cpu())
 
-    mean_norm = torch.cat(all_mean) # (N, L)
-    true_norm = torch.cat(all_true)
+        all_noise_mean.append(noise_mean.cpu())
+        all_noise_true.append(y_noise.cpu())
+        if noise_logvar is not None:
+            all_noise_logvar.append(noise_logvar.cpu())
+        
 
-    mean_orig = val_ds.inverse_transform(mean_norm)
-    true_orig = val_ds.inverse_transform(true_norm)
+    clean_mean_norm = torch.cat(all_clean_mean) # (N, L)
+    clean_true_norm = torch.cat(all_clean_true)
+
+    noise_mean_norm = torch.cat(all_noise_mean)
+    noise_true_norm = torch.cat(all_noise_true)
+
+    clean_mean_orig = val_ds.inverse_transform(clean_mean_norm)
+    clean_true_orig = val_ds.inverse_transform(clean_true_norm)
+
+    noise_mean_orig = val_ds.inverse_transform(noise_mean_norm)
+    noise_true_orig = val_ds.inverse_transform(noise_true_norm)
 
     if predict_variance:
-        logvar_norm = torch.cat(all_logvar)
-        var_norm = torch.exp(logvar_norm)
-        var_orig = val_ds.var_denormalize(var_norm)
+        clean_logvar_norm = torch.cat(all_clean_logvar)
+        noise_logvar_norm = torch.cat(all_noise_logvar)
+
+        clean_var_norm = torch.exp(clean_logvar_norm)
+        noise_var_norm = torch.exp(noise_logvar_norm)
+
+        clean_var_orig = val_ds.var_denormalize(clean_var_norm)
+        noise_var_orig = val_ds.var_denormalize(noise_var_norm)
     else:
-        var_orig = None
+        clean_var_orig = None
+        noise_var_orig = None
 
     # ----------- Metrics ----------
-    mse = torch.mean((mean_orig - true_orig) ** 2).item()
-    print(f"MSE (original units): {mse:.6e}")
+    clean_mse = torch.mean((clean_mean_orig - clean_true_orig) ** 2).item()
+    noise_mse = torch.mean((noise_mean_orig - noise_true_orig) ** 2).item()
+
+    print(f"Clean MSE (original units): {clean_mse:.6e}")
+    print(f"Noise MSE (original units): {noise_mse:.6e}")
 
     # empirical residual variance per
-    residual_var = torch.mean((mean_orig - true_orig) ** 2, dim=0)
+    clean_residual_var = torch.mean((clean_mean_orig - clean_true_orig) ** 2, dim=0)
+    noise_residual_var = torch.mean((noise_mean_orig - noise_true_orig) ** 2, dim=0)
 
     # ---------- Plots ----------
     out_dir = Path("eval_outputs")
@@ -104,49 +133,92 @@ def evaluate(
     ell = np.arange(seq_len)
 
     # Mean Prediction vs True (average over samples)
+    # Clean
     plt.figure()
-    plt.plot(ell, true_orig.mean(dim=0), label="True")
-    plt.plot(ell, mean_orig.mean(dim=0), label="Predicted")
+    plt.plot(ell, clean_true_orig.mean(dim=0), label="Clean True")
+    plt.plot(ell, clean_mean_orig.mean(dim=0), label="Clean Predicted")
     plt.xlabel("l")
     plt.ylabel("Cl")
-    plt.legend
-    plt.title("Mean Cl")
+    plt.legend()
+    plt.title("Clean Mean Cl")
     plt.tight_layout()
-    plt.show()
-    plt.savefig(out_dir/ "mean_vs_true.png")
+    plt.savefig(out_dir/ "clean_mean_vs_true.png")
+    plt.close()
+
+    # Noise
+    plt.figure()
+    plt.plot(ell, noise_true_orig.mean(dim=0), label="Noise True")
+    plt.plot(ell, noise_mean_orig.mean(dim=0), label="Noise Predicted")
+    plt.xlabel("l")
+    plt.ylabel("Cl")
+    plt.legend()
+    plt.title("Noise Mean Cl")
+    plt.tight_layout()
+    plt.savefig(out_dir/ "noise_mean_vs_true.png")
     plt.close()
 
     # Residual variance vs l
+    # Clean
     plt.figure()
-    plt.plot(ell, residual_var.numpy(), label="Empirical residual var")
-    if var_orig is not None:
-        plt.plot(ell, var_orig.mean(dim=0).numpy(), label="Predicted var")
+    plt.plot(ell, clean_residual_var.numpy(), label="Empirical clean residual var")
+    if clean_var_orig is not None:
+        plt.plot(ell, clean_var_orig.mean(dim=0).numpy(), label="Predicted clean var")
     plt.xlabel("l")
     plt.ylabel("Variance")
     plt.legend()
-    plt.title("Variance comparision")
+    plt.title("Clean Variance comparision")
     plt.tight_layout()
-    plt.show()
-    plt.savefig(out_dir/ "residual_variance_vs_l.png")
+    plt.savefig(out_dir/ "clean_residual_variance_vs_l.png")
+    plt.close()
+
+    # Noise
+    plt.figure()
+    plt.plot(ell, noise_residual_var.numpy(), label="Empirical noise residual var")
+    if noise_var_orig is not None:
+        plt.plot(ell, noise_var_orig.mean(dim=0).numpy(), label="Predicted noise var")
+    plt.xlabel("l")
+    plt.ylabel("Variance")
+    plt.legend()
+    plt.title("Noise Variance comparision")
+    plt.tight_layout()
+    plt.savefig(out_dir/ "noise_residual_variance_vs_l.png")
     plt.close()
 
     # Sample realizations
-    if var_orig is not None:
+    # Clean
+    if clean_var_orig is not None:
         idx = 0
-        eps = torch.randn_like(mean_orig[idx])
-        sampled = mean_orig[idx] + torch.sqrt(var_orig[idx])*eps
+        eps = torch.randn_like(clean_mean_orig[idx])
+        sampled = clean_mean_orig[idx] + torch.sqrt(clean_var_orig[idx])*eps
 
         plt.figure()
-        plt.plot(ell, true_orig[idx], label="True")
-        plt.plot(ell, mean_orig[idx], label="Pred mean")
-        plt.plot(ell, sampled, label="Sampled")
+        plt.plot(ell, clean_true_orig[idx], label="True Clean")
+        plt.plot(ell, clean_mean_orig[idx], label="Pred clean mean")
+        plt.plot(ell, sampled, label="Sampled Clean")
         plt.xlabel("l")
         plt.ylabel("Cl")
         plt.legend()
-        plt.title("Sampled realization")
+        plt.title("Sampled Clean realization")
         plt.tight_layout()
-        plt.show()
-        plt.savefig(out_dir/ f"sample_realization_{idx}.png")
+        plt.savefig(out_dir/ f"clean_sample_realization_{idx}.png")
+        plt.close()
+
+    # Noise
+    if noise_var_orig is not None:
+        idx = 0
+        eps = torch.randn_like(noise_mean_orig[idx])
+        sampled = noise_mean_orig[idx] + torch.sqrt(noise_var_orig[idx])*eps
+
+        plt.figure()
+        plt.plot(ell, noise_true_orig[idx], label="True Noise")
+        plt.plot(ell, noise_mean_orig[idx], label="Pred Noise mean")
+        plt.plot(ell, sampled, label="Sampled Noise")
+        plt.xlabel("l")
+        plt.ylabel("Cl")
+        plt.legend()
+        plt.title("Sampled Noise realization")
+        plt.tight_layout()
+        plt.savefig(out_dir/ f"noise_sample_realization_{idx}.png")
         plt.close()
 
     if mlflow.active_run():
@@ -157,7 +229,7 @@ def evaluate(
 if __name__ == "__main__":
     evaluate(
         data_dir="data/processed",
-        chechkpoint_path="checkpoints/epoch_020.pt",
+        checkpoint_path="checkpoints/epoch_020.pt",
         seq_len=31,
         d_model=512,
         n_heads=8,

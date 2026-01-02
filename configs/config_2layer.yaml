@@ -37,6 +37,7 @@ scheduler:
 
 loss:
   type: heteroscedastic
+  lambda_noise: 1.0
   hetero:
     clamp_logvar: true
     logvar_clamp_min: -20.0

@@ -27,18 +27,23 @@ class ClDataset(Dataset):
 
         # load X and Y (noisy and true) either 'train' or 'val' split
         X_path = processed_dir / f"X_{split}.npy"
-        Y_path = processed_dir / f"Y_{split}.npy"
-        if not X_path.exists() or not Y_path.exists():
-            raise FileNotFoundError(f"Processed split files not found: {X_path}, {Y_path}")
+        Y_clean_path = processed_dir / f"Y_clean_{split}.npy"
+        Y_noise_path = processed_dir /f"Y_noise_{split}.npy"
+        if not X_path.exists() or not Y_clean_path.exists() or not Y_noise_path.exists():
+            raise FileNotFoundError(f"Processed split files not found: {X_path}, {Y_clean_path}, {Y_noise_path}")
         
         X = np.load(X_path)
-        Y = np.load(Y_path)
+        Y_clean = np.load(Y_clean_path)
+        Y_noise = np.load(Y_noise_path)
 
-        if X.shape != Y.shape:
-            raise ValueError(f"Inconsistent shapes: X {X.shape}, Y {Y.shape}")
+        if X.shape != Y_clean.shape or X.shape != Y_noise.shape:
+            raise ValueError(
+                f"Inconsistent shapes: X {X.shape}, "
+                f"Y_clean {Y_clean.shape}, Y_noise {Y_noise.shape}")
         
         self.X = torch.from_numpy(X).to(dtype)
-        self.Y = torch.from_numpy(Y).to(dtype)
+        self.Y_clean = torch.from_numpy(Y_clean).to(dtype)
+        self.Y_noise = torch.from_numpy(Y_noise).to(dtype)
 
         # load the scalers
         mean, std = _load_scaler(processed_dir)
@@ -48,8 +53,8 @@ class ClDataset(Dataset):
     def __len__(self) -> int:
         return self.X.shape[0]
         
-    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
-        return self.X[idx], self.Y[idx]
+    def __getitem__(self, idx: int) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+        return self.X[idx], (self.Y_clean[idx], self.Y_noise[idx])
         
     def inverse_transform(self, arr: Tensor | np.ndarray) -> Tensor:
         if not torch.is_tensor(arr):
