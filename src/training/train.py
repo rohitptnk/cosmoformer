@@ -301,6 +301,8 @@ if __name__ == "__main__":
     from src.utils.config_utils import load_config
 
     config_path = "configs/config_2layer.yaml"
+    print(f"Using config: {config_path}")
+    print("Starting training...")
     try:
         train(config_path)
         print("Training completed successfully.")

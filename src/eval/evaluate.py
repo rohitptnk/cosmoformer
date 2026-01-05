@@ -68,9 +68,9 @@ def evaluate(
     all_clean_true = []
 
     
-    all_noise_mean = []     # CHANGED
-    all_noise_logvar = []  # CHANGED
-    all_noise_true = []    # CHANGED
+    all_noise_mean = []    
+    all_noise_logvar = []  
+    all_noise_true = []    
 
     for x, (y_clean, y_noise) in val_loader:
         x = x.to(device)
@@ -122,10 +122,6 @@ def evaluate(
     print(f"Clean MSE (original units): {clean_mse:.6e}")
     print(f"Noise MSE (original units): {noise_mse:.6e}")
 
-    # empirical residual variance per
-    clean_residual_var = torch.mean((clean_mean_orig - clean_true_orig) ** 2, dim=0)
-    noise_residual_var = torch.mean((noise_mean_orig - noise_true_orig) ** 2, dim=0)
-
     # ---------- Plots ----------
     out_dir = Path("eval_outputs")
     out_dir.mkdir(exist_ok=True)
@@ -135,8 +131,8 @@ def evaluate(
     # Mean Prediction vs True (average over samples)
     # Clean
     plt.figure()
-    plt.plot(ell, clean_true_orig.mean(dim=0), label="Clean True")
-    plt.plot(ell, clean_mean_orig.mean(dim=0), label="Clean Predicted")
+    plt.plot(ell, clean_true_orig.mean(dim=0), label="Clean True", marker="o", markersize=2)
+    plt.plot(ell, clean_mean_orig.mean(dim=0), label="Clean Predicted", marker="o", markersize=2)
     plt.xlabel("l")
     plt.ylabel("Cl")
     plt.legend()
@@ -147,41 +143,14 @@ def evaluate(
 
     # Noise
     plt.figure()
-    plt.plot(ell, noise_true_orig.mean(dim=0), label="Noise True")
-    plt.plot(ell, noise_mean_orig.mean(dim=0), label="Noise Predicted")
+    plt.plot(ell, noise_true_orig.mean(dim=0), label="Noise True", marker="o", markersize=2)
+    plt.plot(ell, noise_mean_orig.mean(dim=0), label="Noise Predicted", marker="o", markersize=2)
     plt.xlabel("l")
     plt.ylabel("Cl")
     plt.legend()
     plt.title("Noise Mean Cl")
     plt.tight_layout()
     plt.savefig(out_dir/ "noise_mean_vs_true.png")
-    plt.close()
-
-    # Residual variance vs l
-    # Clean
-    plt.figure()
-    plt.plot(ell, clean_residual_var.numpy(), label="Empirical clean residual var")
-    if clean_var_orig is not None:
-        plt.plot(ell, clean_var_orig.mean(dim=0).numpy(), label="Predicted clean var")
-    plt.xlabel("l")
-    plt.ylabel("Variance")
-    plt.legend()
-    plt.title("Clean Variance comparision")
-    plt.tight_layout()
-    plt.savefig(out_dir/ "clean_residual_variance_vs_l.png")
-    plt.close()
-
-    # Noise
-    plt.figure()
-    plt.plot(ell, noise_residual_var.numpy(), label="Empirical noise residual var")
-    if noise_var_orig is not None:
-        plt.plot(ell, noise_var_orig.mean(dim=0).numpy(), label="Predicted noise var")
-    plt.xlabel("l")
-    plt.ylabel("Variance")
-    plt.legend()
-    plt.title("Noise Variance comparision")
-    plt.tight_layout()
-    plt.savefig(out_dir/ "noise_residual_variance_vs_l.png")
     plt.close()
 
     # Sample realizations
@@ -192,9 +161,9 @@ def evaluate(
         sampled = clean_mean_orig[idx] + torch.sqrt(clean_var_orig[idx])*eps
 
         plt.figure()
-        plt.plot(ell, clean_true_orig[idx], label="True Clean")
-        plt.plot(ell, clean_mean_orig[idx], label="Pred clean mean")
-        plt.plot(ell, sampled, label="Sampled Clean")
+        plt.plot(ell, clean_true_orig[idx], label="True Clean", marker="o", markersize=2)
+        plt.plot(ell, clean_mean_orig[idx], label="Pred clean mean", marker="o", markersize=2)
+        plt.plot(ell, sampled, label="Sampled Clean", marker="o", markersize=2)
         plt.xlabel("l")
         plt.ylabel("Cl")
         plt.legend()
@@ -210,9 +179,9 @@ def evaluate(
         sampled = noise_mean_orig[idx] + torch.sqrt(noise_var_orig[idx])*eps
 
         plt.figure()
-        plt.plot(ell, noise_true_orig[idx], label="True Noise")
-        plt.plot(ell, noise_mean_orig[idx], label="Pred Noise mean")
-        plt.plot(ell, sampled, label="Sampled Noise")
+        plt.plot(ell, noise_true_orig[idx], label="True Noise", marker="o", markersize=2)
+        plt.plot(ell, noise_mean_orig[idx], label="Pred Noise mean", marker="o", markersize=2)
+        plt.plot(ell, sampled, label="Sampled Noise", marker="o", markersize=2)
         plt.xlabel("l")
         plt.ylabel("Cl")
         plt.legend()
@@ -229,8 +198,8 @@ def evaluate(
 if __name__ == "__main__":
     evaluate(
         data_dir="data/processed",
-        checkpoint_path="checkpoints/epoch_020.pt",
-        seq_len=31,
+        checkpoint_path="experiments/cosmoformer_2layer/best_model.pt",
+        seq_len=127,
         d_model=512,
         n_heads=8,
         d_ff=2048,
