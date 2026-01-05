@@ -33,21 +33,21 @@ def train_one_epoch(
     model.train()
     total_loss = 0.0
 
-    for x, (y_clean, y_noise) in loader:
+    for x, (y_true, y_noise) in loader:
         x = x.to(device)
-        y_clean = y_clean.to(device)
+        y_true = y_true.to(device)
         y_noise = y_noise.to(device)
         optimizer.zero_grad(set_to_none=True)
 
         if use_amp:
             with autocast(device_type=device.type):
-                clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+                true_mean, true_logvar, noise_mean, noise_logvar = model(x)
                 loss = loss_fn(
-                    clean_mean, 
-                    clean_logvar, 
+                    true_mean, 
+                    true_logvar, 
                     noise_mean, 
                     noise_logvar,
-                    y_clean,
+                    y_true,
                     y_noise,
                 )
             
@@ -56,13 +56,13 @@ def train_one_epoch(
             scaler.step(optimizer)
             scaler.update()
         else:
-            clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+            true_mean, true_logvar, noise_mean, noise_logvar = model(x)
             loss = loss_fn(
-                clean_mean, 
-                clean_logvar, 
+                true_mean, 
+                true_logvar, 
                 noise_mean,
                 noise_logvar,
-                y_clean,
+                y_true,
                 y_noise,
             )
             loss.backward()
@@ -86,18 +86,18 @@ def validate(
     model.eval()
     total_loss = 0.0
 
-    for x, (y_clean, y_noise) in loader:
+    for x, (y_true, y_noise) in loader:
         x = x.to(device)
-        y_clean = y_clean.to(device)
+        y_true = y_true.to(device)
         y_noise = y_noise.to(device)
 
-        clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+        true_mean, true_logvar, noise_mean, noise_logvar = model(x)
         loss = loss_fn(
-            clean_mean, 
-            clean_logvar, 
+            true_mean, 
+            true_logvar, 
             noise_mean,
             noise_logvar,
-            y_clean,
+            y_true,
             y_noise,
         )
         total_loss += loss.item()
@@ -301,4 +301,9 @@ if __name__ == "__main__":
     from src.utils.config_utils import load_config
 
     config_path = "configs/config_2layer.yaml"
-    train(config_path)
+    try:
+        train(config_path)
+        print("Training completed successfully.")
+    except Exception as e:
+        print(f"Training failed with exception: {e}")
+        raise e

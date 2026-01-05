@@ -7,14 +7,14 @@ def prepare_and_save(raw_dir="data/raw", out_dir="data/processed", train_frac=0.
     out_dir=Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    X = np.load(raw_dir / "mixed_cls_64_1k.npy") # mixed = clean + noise
-    Y_clean = np.load(raw_dir / "true_cls_64_1k.npy")
+    X = np.load(raw_dir / "mixed_cls_64_1k.npy") # mixed = true + noise
+    Y_true = np.load(raw_dir / "true_cls_64_1k.npy")
     Y_noise = np.load(raw_dir / "noise_cls_64_1k.npy")
 
-    if not (X.shape == Y_clean.shape == Y_noise.shape):
+    if not (X.shape == Y_true.shape == Y_noise.shape):
         raise ValueError(
             f"Inconsistent shapes: mixed {X.shape}, "
-            f"clean {Y_clean.shape}, {Y_noise.shape}"
+            f"true {Y_true.shape}, {Y_noise.shape}"
         )
 
     # random 80-20 train-test split
@@ -27,11 +27,11 @@ def prepare_and_save(raw_dir="data/raw", out_dir="data/processed", train_frac=0.
     val_idx = perm[n_train:]
 
     X_train = X[train_idx]
-    Yc_train = Y_clean[train_idx]
+    Yc_train = Y_true[train_idx]
     Yn_train = Y_noise[train_idx]
 
     X_val = X[val_idx]
-    Yc_val = Y_clean[val_idx]
+    Yc_val = Y_true[val_idx]
     Yn_val = Y_noise[val_idx]
 
     # compute mean and std
