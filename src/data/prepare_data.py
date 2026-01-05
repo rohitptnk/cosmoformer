@@ -7,9 +7,9 @@ def prepare_and_save(raw_dir="data/raw", out_dir="data/processed", train_frac=0.
     out_dir=Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    X = np.load(raw_dir / "mixed_cls.npy") # mixed = clean + noise
-    Y_clean = np.load(raw_dir / "clean_cls.npy")
-    Y_noise = np.load(raw_dir / "noise_cls.npy")
+    X = np.load(raw_dir / "mixed_cls_64_1k.npy") # mixed = clean + noise
+    Y_clean = np.load(raw_dir / "true_cls_64_1k.npy")
+    Y_noise = np.load(raw_dir / "noise_cls_64_1k.npy")
 
     if not (X.shape == Y_clean.shape == Y_noise.shape):
         raise ValueError(
@@ -52,8 +52,8 @@ def prepare_and_save(raw_dir="data/raw", out_dir="data/processed", train_frac=0.
     np.save(out_dir / "X_train.npy", X_train_s)
     np.save(out_dir / "X_val.npy", X_val_s)
 
-    np.save(out_dir / "Y_clean_train.npy", Yc_train_s)
-    np.save(out_dir / "Y_clean_val.npy", Yc_val_s)
+    np.save(out_dir / "Y_true_train.npy", Yc_train_s)
+    np.save(out_dir / "Y_true_val.npy", Yc_val_s)
     
     np.save(out_dir / "Y_noise_train.npy", Yn_train_s)
     np.save(out_dir / "Y_noise_val.npy", Yn_val_s)
