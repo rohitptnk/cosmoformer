@@ -166,6 +166,8 @@ def train(config_path: str):
         )
 
         run_id = mlflow_run.info.run_id
+        with open(Path(checkpoint_dir) / "run_id.txt", "w") as f:
+            f.write(run_id)
         print(f"MLflow run_id: {run_id}")
         mlflow.log_artifact(config_path, artifact_path="config")
 
@@ -262,7 +264,7 @@ def train(config_path: str):
 
         print(
             f"Epoch {epoch:03d} | "
-            f"Train Loss: {train_loss:.6f} |"
+            f"Train Loss: {train_loss:.6f} | "
             f"Val Loss: {val_loss:.6f}"
         )
 

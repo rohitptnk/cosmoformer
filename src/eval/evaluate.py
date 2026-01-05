@@ -13,23 +13,35 @@ import mlflow
 
 
 @torch.no_grad()
-def evaluate(
-    data_dir: str | Path,
-    checkpoint_path: str | Path,
-    seq_len: int,
-    d_model: int,
-    n_heads: int,
-    d_ff: int,
-    n_layers: int,
-    batch_size: int = 128,
-    predict_variance: bool = True,
-    device_str: str = "cuda",
-    run_id: str | None = None,
-):
-    if run_id is not None:
-        mlflow.start_run(run_id=run_id, nested=True)
+def evaluate(config_path: str):
+
+    cfg = load_config(config_path)
+
+    # Load Config
+    data_dir = cfg["data"]["processed_dir"]
+    seq_len = cfg["data"]["seq_len"]
+
+    checkpoint_dir = cfg["checkpoint"]["checkpoint_dir"]
+    checkpoint_path = Path(checkpoint_dir) / "best_model.pt"
+
+    d_model = cfg["model"]["d_model"]
+    n_heads = cfg["model"]["n_heads"]
+    d_ff = cfg["model"]["d_ff"]
+    n_layers = cfg["model"]["n_layers"]
+    predict_variance = cfg["model"]["predict_variance"]
+
+    batch_size = cfg["training"]["batch_size"]
+
+    device_str = cfg["experiment"]["device"]
+
+    run_id_path = Path(checkpoint_dir) / "run_id.txt"
+    run_id = run_id_path.read_text().strip()
+    mlflow.start_run(run_id=run_id, nested=True)
     
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
+
+    out_dir = Path(checkpoint_dir) / "eval_outputs"
+    out_dir.mkdir(exist_ok=True)
 
     # Data
     val_ds = ClDataset(data_dir, split="val")
@@ -123,8 +135,6 @@ def evaluate(
     print(f"Noise MSE (original units): {noise_mse:.6e}")
 
     # ---------- Plots ----------
-    out_dir = Path("eval_outputs")
-    out_dir.mkdir(exist_ok=True)
 
     ell = np.arange(seq_len)
 
@@ -196,13 +206,11 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    evaluate(
-        data_dir="data/processed",
-        checkpoint_path="experiments/cosmoformer_2layer/best_model.pt",
-        seq_len=127,
-        d_model=512,
-        n_heads=8,
-        d_ff=2048,
-        n_layers=2,
-        predict_variance=True,
-    )
+    from src.utils.config_utils import load_config
+
+    config_path = "configs/config_2layer.yaml"
+    print(f"Using config: {config_path}")
+    print("Starting evaluation...")
+
+    evaluate(config_path)
+    print("Evaluation successful.")

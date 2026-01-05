@@ -20,7 +20,7 @@ model:
   predict_variance: True
 
 training:
-  epochs: 1
+  epochs: 10
   batch_size: 64
   use_amp: true
   grad_clip: 1.0
@@ -48,8 +48,8 @@ logging:
   mlflow:
     tracking_uri: file:./mlruns
     experiment_name: cosmoformer
-    run_name: cosmoformer_2layer
+    run_name: cosmoformer_2layer_10epochs
 
 checkpoint:
-  checkpoint_dir: ./experiments/cosmoformer_2layer
+  checkpoint_dir: ./experiments/cosmoformer_2layer_10epochs
   resume_from: null
