@@ -34,9 +34,13 @@ def evaluate(config_path: str):
 
     device_str = cfg["experiment"]["device"]
 
-    run_id_path = Path(checkpoint_dir) / "run_id.txt"
-    run_id = run_id_path.read_text().strip()
-    mlflow.start_run(run_id=run_id, nested=True)
+    use_mlflow = cfg["logging"].get("use_mlflow", False)
+
+    if use_mlflow:
+        run_id_path = Path(checkpoint_dir) / "run_id.txt"
+        run_id = run_id_path.read_text().strip()
+        print(run_id)
+        mlflow.start_run(run_id=run_id)
     
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
 
@@ -134,6 +138,7 @@ def evaluate(config_path: str):
     print(f"Clean MSE (original units): {clean_mse:.6e}")
     print(f"Noise MSE (original units): {noise_mse:.6e}")
 
+
     # ---------- Plots ----------
 
     ell = np.arange(seq_len)
@@ -141,8 +146,10 @@ def evaluate(config_path: str):
     # Mean Prediction vs True (average over samples)
     # Clean
     plt.figure()
-    plt.plot(ell, clean_true_orig.mean(dim=0), label="Clean True", marker="o", markersize=2)
-    plt.plot(ell, clean_mean_orig.mean(dim=0), label="Clean Predicted", marker="o", markersize=2)
+    plt.errorbar(ell, clean_true_orig.mean(dim=0), yerr= clean_true_orig.std(dim=0), 
+                 label="Clean True", fmt="-o", markersize=3, capsize=3)
+    plt.errorbar(ell, clean_mean_orig.mean(dim=0), yerr= clean_mean_orig.std(dim=0), 
+                 label="Clean Predicted", fmt="--o", markersize=3, capsize=3)
     plt.xlabel("l")
     plt.ylabel("Cl")
     plt.legend()
@@ -153,8 +160,10 @@ def evaluate(config_path: str):
 
     # Noise
     plt.figure()
-    plt.plot(ell, noise_true_orig.mean(dim=0), label="Noise True", marker="o", markersize=2)
-    plt.plot(ell, noise_mean_orig.mean(dim=0), label="Noise Predicted", marker="o", markersize=2)
+    plt.errorbar(ell, noise_true_orig.mean(dim=0), yerr= noise_true_orig.std(dim=0), 
+                 label="Noise True", fmt="-o", markersize=3, capsize=3)
+    plt.errorbar(ell, noise_mean_orig.mean(dim=0), yerr= noise_mean_orig.std(dim=0), 
+                 label="Noise Predicted", fmt="--o", markersize=3, capsize=3)
     plt.xlabel("l")
     plt.ylabel("Cl")
     plt.legend()
@@ -171,9 +180,8 @@ def evaluate(config_path: str):
         sampled = clean_mean_orig[idx] + torch.sqrt(clean_var_orig[idx])*eps
 
         plt.figure()
-        plt.plot(ell, clean_true_orig[idx], label="True Clean", marker="o", markersize=2)
-        plt.plot(ell, clean_mean_orig[idx], label="Pred clean mean", marker="o", markersize=2)
-        plt.plot(ell, sampled, label="Sampled Clean", marker="o", markersize=2)
+        plt.plot(ell, clean_true_orig[idx], label="True Clean",)
+        plt.plot(ell, sampled, label="Sampled Clean", linestyle="--")
         plt.xlabel("l")
         plt.ylabel("Cl")
         plt.legend()
@@ -189,9 +197,8 @@ def evaluate(config_path: str):
         sampled = noise_mean_orig[idx] + torch.sqrt(noise_var_orig[idx])*eps
 
         plt.figure()
-        plt.plot(ell, noise_true_orig[idx], label="True Noise", marker="o", markersize=2)
-        plt.plot(ell, noise_mean_orig[idx], label="Pred Noise mean", marker="o", markersize=2)
-        plt.plot(ell, sampled, label="Sampled Noise", marker="o", markersize=2)
+        plt.plot(ell, noise_true_orig[idx], label="True Noise")
+        plt.plot(ell, sampled, label="Sampled Noise", linestyle="--")
         plt.xlabel("l")
         plt.ylabel("Cl")
         plt.legend()
@@ -200,8 +207,10 @@ def evaluate(config_path: str):
         plt.savefig(out_dir/ f"noise_sample_realization_{idx}.png")
         plt.close()
 
-    if mlflow.active_run():
-        mlflow.log_artifacts("eval_outputs", artifact_path="evaluation")
+    if use_mlflow and mlflow.active_run() is not None:
+        mlflow.log_metric("clean_mse", clean_mse)
+        mlflow.log_metric("noise_mse", noise_mse)
+        mlflow.log_artifacts(str(out_dir), artifact_path="evaluation")
         mlflow.end_run()
 
 
