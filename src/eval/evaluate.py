@@ -144,6 +144,8 @@ def evaluate(config_path: str):
     ell = np.arange(seq_len)
 
     # Mean Prediction vs True (average over samples)
+    eps = torch.randn_like(clean_mean_orig)  # (N, L)
+
     # Clean
     plt.figure()
     plt.errorbar(ell, clean_true_orig.mean(dim=0), yerr= clean_true_orig.std(dim=0), 
@@ -156,6 +158,31 @@ def evaluate(config_path: str):
     plt.title("Clean Mean Cl")
     plt.tight_layout()
     plt.savefig(out_dir/ "clean_mean_vs_true.png")
+    plt.close()
+
+    # Clean Sampled
+    clean_samples = clean_mean_orig + torch.sqrt(clean_var_orig)*eps if clean_var_orig is not None else clean_mean_orig
+    true_mean_clean = clean_true_orig.mean(dim=0)
+    true_std_clean = clean_true_orig.std(dim=0)
+
+    sampled_mean_clean = clean_samples.mean(dim=0)
+    sampled_std_clean = clean_samples.std(dim=0)
+
+    plt.figure(figsize=(8, 5))
+    plt.errorbar(
+        ell, true_mean_clean, yerr= true_std_clean, 
+        fmt="-o", markersize=3, capsize=3,
+        label="Clean True")
+    plt.errorbar(
+        ell, sampled_mean_clean, yerr= sampled_std_clean, 
+        fmt="--o", markersize=3, capsize=3,
+        label="Clean Predicted")
+    plt.xlabel("l")
+    plt.ylabel("Cl")
+    plt.legend()
+    plt.title("Sampled Clean Mean Cl")
+    plt.tight_layout()
+    plt.savefig(out_dir/ "clean_mean_vs_true_sampled.png")
     plt.close()
 
     # Noise

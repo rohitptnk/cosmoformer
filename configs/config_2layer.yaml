@@ -4,11 +4,25 @@ experiment:
 
 data:
   data_dir: ./data
-  raw_dir: ./data/raw
-  processed_dir: ./data/processed
+  raw_dir: ./data/raw/10k_diff
+  processed_dir: ./data/processed/10k_diff
+  mixed_cls_name: mixed_cls_64_10k.npy
+  true_cls_name: true_cls_64_10k.npy
+  noise_cls_name: noise_cls_64_10k.npy
   seq_len: 127
   num_workers: 4
   pin_memory: true
+
+logging:
+  use_mlflow: true
+  mlflow:
+    tracking_uri: file:./mlruns
+    experiment_name: cosmoformer
+    run_name: cosmoformer_2layer_10k_diff_50epochs
+
+checkpoint:
+  checkpoint_dir: ./experiments/cosmoformer_2layer_10k_diff_50epochs
+  resume_from: null
 
 model:
   d_model: 512
@@ -20,7 +34,7 @@ model:
   predict_variance: True
 
 training:
-  epochs: 10
+  epochs: 50
   batch_size: 64
   use_amp: true
   grad_clip: 1.0
@@ -43,13 +57,3 @@ loss:
     logvar_clamp_min: -20.0
     logvar_clamp_max: 20.0
 
-logging:
-  use_mlflow: true
-  mlflow:
-    tracking_uri: file:./mlruns
-    experiment_name: cosmoformer
-    run_name: cosmoformer_2layer_10epochs
-
-checkpoint:
-  checkpoint_dir: ./experiments/cosmoformer_2layer_10epochs
-  resume_from: null

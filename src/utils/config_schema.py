@@ -11,6 +11,9 @@ class DataCfg(BaseModel):
     data_dir: str
     raw_dir: str
     processed_dir: str
+    mixed_cls_name: str
+    true_cls_name: str
+    noise_cls_name: str
     seq_len: int
     num_workers: int
     pin_memory: bool

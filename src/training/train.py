@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -166,6 +167,7 @@ def train(config_path: str):
         )
 
         run_id = mlflow_run.info.run_id
+        Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
         with open(Path(checkpoint_dir) / "run_id.txt", "w") as f:
             f.write(run_id)
         print(f"MLflow run_id: {run_id}")
