@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 from pathlib import Path
 
 import torch
@@ -34,38 +34,26 @@ def train_one_epoch(
     model.train()
     total_loss = 0.0
 
-    for x, (y_true, y_noise) in loader:
-        x = x.to(device)
+    for (x1, x2), (y_true, y_fg1, y_fg2) in loader:
+        x1, x2 = x1.to(device), x2.to(device)
         y_true = y_true.to(device)
-        y_noise = y_noise.to(device)
+        y_fg1 = y_fg1.to(device)
+        y_fg2 = y_fg2.to(device)
+
         optimizer.zero_grad(set_to_none=True)
 
         if use_amp:
             with autocast(device_type=device.type):
-                true_mean, true_logvar, noise_mean, noise_logvar = model(x)
-                loss = loss_fn(
-                    true_mean, 
-                    true_logvar, 
-                    noise_mean, 
-                    noise_logvar,
-                    y_true,
-                    y_noise,
-                )
+                outputs = model(x1, x2)
+                loss = loss_fn(*outputs, y_true, y_fg1, y_fg2)
             
             assert scaler is not None
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
         else:
-            true_mean, true_logvar, noise_mean, noise_logvar = model(x)
-            loss = loss_fn(
-                true_mean, 
-                true_logvar, 
-                noise_mean,
-                noise_logvar,
-                y_true,
-                y_noise,
-            )
+            outputs = model(x1, x2)
+            loss = loss_fn(*outputs, y_true, y_fg1, y_fg2)
             loss.backward()
             optimizer.step()
 
@@ -87,27 +75,21 @@ def validate(
     model.eval()
     total_loss = 0.0
 
-    for x, (y_true, y_noise) in loader:
-        x = x.to(device)
+    for (x1, x2), (y_true, y_fg1, y_fg2) in loader:
+        x1, x2 = x1.to(device), x2.to(device)
         y_true = y_true.to(device)
-        y_noise = y_noise.to(device)
+        y_fg1 = y_fg1.to(device)
+        y_fg2 = y_fg2.to(device)
 
-        true_mean, true_logvar, noise_mean, noise_logvar = model(x)
-        loss = loss_fn(
-            true_mean, 
-            true_logvar, 
-            noise_mean,
-            noise_logvar,
-            y_true,
-            y_noise,
-        )
+        outputs = model(x1, x2)
+        loss = loss_fn(*outputs, y_true, y_fg1, y_fg2)
         total_loss += loss.item()
 
     return total_loss / len(loader)
 
 
 # Main training entry
-def train(config_path: str):
+def train(config_path: Union[str, Path]):
 
     cfg = load_config(config_path)
 

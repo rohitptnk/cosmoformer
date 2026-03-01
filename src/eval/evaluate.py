@@ -79,164 +79,98 @@ def evaluate(config_path: str):
     model.eval()
 
     # Storage
-    all_clean_mean = []
-    all_clean_logvar = []
-    all_clean_true = []
+    storage = {
+        "clean": {"mean": [], "logvar": [], "true": []},
+        "fg1": {"mean": [], "logvar": [], "true": []},
+        "fg2": {"mean": [], "logvar": [], "true": []},
+    }
 
-    
-    all_noise_mean = []    
-    all_noise_logvar = []  
-    all_noise_true = []    
-
-    for x, (y_clean, y_noise) in val_loader:
-        x = x.to(device)
+    for (x1, x2), (y_clean, y_fg1, y_fg2) in val_loader:
+        x1, x2 = x1.to(device), x2.to(device)
         y_clean = y_clean.to(device)
-        y_noise = y_noise.to(device)
+        y_fg1 = y_fg1.to(device)
+        y_fg2 = y_fg2.to(device)
 
-        clean_mean, clean_logvar, noise_mean, noise_logvar = model(x)
+        c_m, c_v, f1_m, f1_v, f2_m, f2_v = model(x1, x2)
 
-        all_clean_mean.append(clean_mean.cpu())
-        all_clean_true.append(y_clean.cpu())
-        if clean_logvar is not None:
-            all_clean_logvar.append(clean_logvar.cpu())
+        storage["clean"]["mean"].append(c_m.cpu())
+        storage["clean"]["true"].append(y_clean.cpu())
+        if c_v is not None: storage["clean"]["logvar"].append(c_v.cpu())
 
-        all_noise_mean.append(noise_mean.cpu())
-        all_noise_true.append(y_noise.cpu())
-        if noise_logvar is not None:
-            all_noise_logvar.append(noise_logvar.cpu())
+        storage["fg1"]["mean"].append(f1_m.cpu())
+        storage["fg1"]["true"].append(y_fg1.cpu())
+        if f1_v is not None: storage["fg1"]["logvar"].append(f1_v.cpu())
+
+        storage["fg2"]["mean"].append(f2_m.cpu())
+        storage["fg2"]["true"].append(y_fg2.cpu())
+        if f2_v is not None: storage["fg2"]["logvar"].append(f2_v.cpu())
+
+    results = {}
+    for key in storage:
+        mean_norm = torch.cat(storage[key]["mean"])
+        true_norm = torch.cat(storage[key]["true"])
         
-
-    clean_mean_norm = torch.cat(all_clean_mean) # (N, L)
-    clean_true_norm = torch.cat(all_clean_true)
-
-    noise_mean_norm = torch.cat(all_noise_mean)
-    noise_true_norm = torch.cat(all_noise_true)
-
-    clean_mean_orig = val_ds.inverse_transform(clean_mean_norm)
-    clean_true_orig = val_ds.inverse_transform(clean_true_norm)
-
-    noise_mean_orig = val_ds.inverse_transform(noise_mean_norm)
-    noise_true_orig = val_ds.inverse_transform(noise_true_norm)
-
-    if predict_variance:
-        clean_logvar_norm = torch.cat(all_clean_logvar)
-        noise_logvar_norm = torch.cat(all_noise_logvar)
-
-        clean_var_norm = torch.exp(clean_logvar_norm)
-        noise_var_norm = torch.exp(noise_logvar_norm)
-
-        clean_var_orig = val_ds.var_denormalize(clean_var_norm)
-        noise_var_orig = val_ds.var_denormalize(noise_var_norm)
-    else:
-        clean_var_orig = None
-        noise_var_orig = None
-
-    # ----------- Metrics ----------
-    clean_mse = torch.mean((clean_mean_orig - clean_true_orig) ** 2).item()
-    noise_mse = torch.mean((noise_mean_orig - noise_true_orig) ** 2).item()
-
-    print(f"Clean MSE (original units): {clean_mse:.6e}")
-    print(f"Noise MSE (original units): {noise_mse:.6e}")
-
+        mean_orig = val_ds.inverse_transform(mean_norm)
+        true_orig = val_ds.inverse_transform(true_norm)
+        
+        mse = torch.mean((mean_orig - true_orig) ** 2).item()
+        print(f"{key.capitalize()} MSE (original units): {mse:.6e}")
+        
+        var_orig = None
+        if predict_variance and storage[key]["logvar"]:
+            logvar_norm = torch.cat(storage[key]["logvar"])
+            var_norm = torch.exp(logvar_norm)
+            var_orig = val_ds.var_denormalize(var_norm)
+            
+        results[key] = {
+            "mean_orig": mean_orig,
+            "true_orig": true_orig,
+            "var_orig": var_orig,
+            "mse": mse
+        }
 
     # ---------- Plots ----------
-
     ell = np.arange(seq_len)
+    eps = torch.randn_like(results["clean"]["mean_orig"])
 
-    # Mean Prediction vs True (average over samples)
-    eps = torch.randn_like(clean_mean_orig)  # (N, L)
+    for key in results:
+        res = results[key]
+        t_orig = res["true_orig"]
+        m_orig = res["mean_orig"]
+        v_orig = res["var_orig"]
 
-    # Clean
-    plt.figure()
-    plt.errorbar(ell, clean_true_orig.mean(dim=0), yerr= clean_true_orig.std(dim=0), 
-                 label="Clean True", fmt="-o", markersize=3, capsize=3)
-    plt.errorbar(ell, clean_mean_orig.mean(dim=0), yerr= clean_mean_orig.std(dim=0), 
-                 label="Clean Predicted", fmt="--o", markersize=3, capsize=3)
-    plt.xlabel("l")
-    plt.ylabel("Cl")
-    plt.legend()
-    plt.title("Clean Mean Cl")
-    plt.tight_layout()
-    plt.savefig(out_dir/ "clean_mean_vs_true.png")
-    plt.close()
-
-    # Clean Sampled
-    clean_samples = clean_mean_orig + torch.sqrt(clean_var_orig)*eps if clean_var_orig is not None else clean_mean_orig
-    true_mean_clean = clean_true_orig.mean(dim=0)
-    true_std_clean = clean_true_orig.std(dim=0)
-
-    sampled_mean_clean = clean_samples.mean(dim=0)
-    sampled_std_clean = clean_samples.std(dim=0)
-
-    plt.figure(figsize=(8, 5))
-    plt.errorbar(
-        ell, true_mean_clean, yerr= true_std_clean, 
-        fmt="-o", markersize=3, capsize=3,
-        label="Clean True")
-    plt.errorbar(
-        ell, sampled_mean_clean, yerr= sampled_std_clean, 
-        fmt="--o", markersize=3, capsize=3,
-        label="Clean Predicted")
-    plt.xlabel("l")
-    plt.ylabel("Cl")
-    plt.legend()
-    plt.title("Sampled Clean Mean Cl")
-    plt.tight_layout()
-    plt.savefig(out_dir/ "clean_mean_vs_true_sampled.png")
-    plt.close()
-
-    # Noise
-    plt.figure()
-    plt.errorbar(ell, noise_true_orig.mean(dim=0), yerr= noise_true_orig.std(dim=0), 
-                 label="Noise True", fmt="-o", markersize=3, capsize=3)
-    plt.errorbar(ell, noise_mean_orig.mean(dim=0), yerr= noise_mean_orig.std(dim=0), 
-                 label="Noise Predicted", fmt="--o", markersize=3, capsize=3)
-    plt.xlabel("l")
-    plt.ylabel("Cl")
-    plt.legend()
-    plt.title("Noise Mean Cl")
-    plt.tight_layout()
-    plt.savefig(out_dir/ "noise_mean_vs_true.png")
-    plt.close()
-
-    # Sample realizations
-    # Clean
-    if clean_var_orig is not None:
-        idx = 0
-        eps = torch.randn_like(clean_mean_orig[idx])
-        sampled = clean_mean_orig[idx] + torch.sqrt(clean_var_orig[idx])*eps
-
+        # Mean Prediction vs True
         plt.figure()
-        plt.plot(ell, clean_true_orig[idx], label="True Clean",)
-        plt.plot(ell, sampled, label="Sampled Clean", linestyle="--")
+        plt.errorbar(ell, t_orig.mean(dim=0), yerr=t_orig.std(dim=0), 
+                     label=f"{key.capitalize()} True", fmt="-o", markersize=3, capsize=3)
+        plt.errorbar(ell, m_orig.mean(dim=0), yerr=m_orig.std(dim=0), 
+                     label=f"{key.capitalize()} Predicted", fmt="--o", markersize=3, capsize=3)
         plt.xlabel("l")
         plt.ylabel("Cl")
         plt.legend()
-        plt.title("Sampled Clean realization")
+        plt.title(f"{key.capitalize()} Mean Cl")
         plt.tight_layout()
-        plt.savefig(out_dir/ f"clean_sample_realization_{idx}.png")
+        plt.savefig(out_dir/ f"{key}_mean_vs_true.png")
         plt.close()
 
-    # Noise
-    if noise_var_orig is not None:
-        idx = 0
-        eps = torch.randn_like(noise_mean_orig[idx])
-        sampled = noise_mean_orig[idx] + torch.sqrt(noise_var_orig[idx])*eps
-
-        plt.figure()
-        plt.plot(ell, noise_true_orig[idx], label="True Noise")
-        plt.plot(ell, sampled, label="Sampled Noise", linestyle="--")
-        plt.xlabel("l")
-        plt.ylabel("Cl")
-        plt.legend()
-        plt.title("Sampled Noise realization")
-        plt.tight_layout()
-        plt.savefig(out_dir/ f"noise_sample_realization_{idx}.png")
-        plt.close()
+        # Sampled realizations
+        if v_orig is not None:
+            idx = 0
+            sampled = m_orig[idx] + torch.sqrt(v_orig[idx]) * torch.randn_like(m_orig[idx])
+            plt.figure()
+            plt.plot(ell, t_orig[idx], label=f"True {key.capitalize()}")
+            plt.plot(ell, sampled, label=f"Sampled {key.capitalize()}", linestyle="--")
+            plt.xlabel("l")
+            plt.ylabel("Cl")
+            plt.legend()
+            plt.title(f"Sampled {key.capitalize()} realization")
+            plt.tight_layout()
+            plt.savefig(out_dir/ f"{key}_sample_realization_{idx}.png")
+            plt.close()
 
     if use_mlflow and mlflow.active_run() is not None:
-        mlflow.log_metric("clean_mse", clean_mse)
-        mlflow.log_metric("noise_mse", noise_mse)
+        for key in results:
+            mlflow.log_metric(f"{key}_mse", results[key]["mse"])
         mlflow.log_artifacts(str(out_dir), artifact_path="evaluation")
         mlflow.end_run()
 

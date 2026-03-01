@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import numpy  as np
 import torch
 from torch.utils.data import Dataset, random_split, Subset
@@ -19,31 +19,34 @@ def _load_scaler(proccessed_dir: Path) -> Tuple[float, float]:
     return mean, std
 
 class ClDataset(Dataset):
-    def __init__(self, processed_dir: str | Path, split: str = "train", dtype: torch.dtype = DEFAULT_DTYPE):
+    def __init__(self, processed_dir: Union[str, Path], split: str = "train", dtype: torch.dtype = DEFAULT_DTYPE):
         processed_dir = Path(processed_dir) 
         split = split.lower()
         if split not in ("train", "val"):
             raise ValueError("split must be 'train' or 'val'")
 
-        # load X and Y (noisy and true) either 'train' or 'val' split
-        X_path = processed_dir / f"X_{split}.npy"
-        Y_true_path = processed_dir / f"Y_true_{split}.npy"
-        Y_noise_path = processed_dir /f"Y_noise_{split}.npy"
-        if not X_path.exists() or not Y_true_path.exists() or not Y_noise_path.exists():
-            raise FileNotFoundError(f"Processed split files not found: {X_path}, {Y_true_path}, {Y_noise_path}")
-        
-        X = np.load(X_path)
-        Y_true = np.load(Y_true_path)
-        Y_noise = np.load(Y_noise_path)
+        # Files to load
+        files = {
+            "X1": f"X1_{split}.npy",
+            "X2": f"X2_{split}.npy",
+            "Y_true": f"Y_true_{split}.npy",
+            "Y_fg1": f"Y_fg1_{split}.npy",
+            "Y_fg2": f"Y_fg2_{split}.npy"
+        }
 
-        if X.shape != Y_true.shape or X.shape != Y_noise.shape:
-            raise ValueError(
-                f"Inconsistent shapes: X {X.shape}, "
-                f"Y_true {Y_true.shape}, Y_noise {Y_noise.shape}")
-        
-        self.X = torch.from_numpy(X).to(dtype)
-        self.Y_true = torch.from_numpy(Y_true).to(dtype)
-        self.Y_noise = torch.from_numpy(Y_noise).to(dtype)
+        self.data = {}
+        for key, fname in files.items():
+            path = processed_dir / fname
+            if not path.exists():
+                raise FileNotFoundError(f"Processed split file not found: {path}")
+            arr = np.load(path)
+            self.data[key] = torch.from_numpy(arr).to(dtype)
+
+        # check shapes
+        ref_shape = self.data["X1"].shape
+        for key, tensor in self.data.items():
+            if tensor.shape != ref_shape:
+                raise ValueError(f"Inconsistent shapes in {split} split for {key}: {tensor.shape} vs {ref_shape}")
 
         # load the scalers
         mean, std = _load_scaler(processed_dir)
@@ -51,17 +54,18 @@ class ClDataset(Dataset):
         self.std = torch.tensor(std, dtype=dtype)
 
     def __len__(self) -> int:
-        return self.X.shape[0]
+        return self.data["X1"].shape[0]
         
-    def __getitem__(self, idx: int) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
-        return self.X[idx], (self.Y_true[idx], self.Y_noise[idx])
+    def __getitem__(self, idx: int) -> Tuple[Tuple[Tensor, Tensor], Tuple[Tensor, Tensor, Tensor]]:
+        return (self.data["X1"][idx], self.data["X2"][idx]), \
+               (self.data["Y_true"][idx], self.data["Y_fg1"][idx], self.data["Y_fg2"][idx])
         
-    def inverse_transform(self, arr: Tensor | np.ndarray) -> Tensor:
+    def inverse_transform(self, arr: Union[Tensor, np.ndarray]) -> Tensor:
         if not torch.is_tensor(arr):
             arr = torch.tensor(arr, dtype=self.mean.dtype)
         return arr * self.std.to(arr.device) + self.mean.to(arr.device)
     
-    def var_denormalize(self, var_norm: Tensor | np.ndarray) -> Tensor:
+    def var_denormalize(self, var_norm: Union[Tensor, np.ndarray]) -> Tensor:
         """
         Given variance in normalized units (var_norm), convert to original units:
             var_orig = var_norm * std^2

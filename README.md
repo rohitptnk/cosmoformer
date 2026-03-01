@@ -17,3 +17,13 @@ python -m src.data.prepare_data
 python -m src.training.train
 python -m src.eval.evaluate
 ```
+
+
+Inputs to training
+- Mixed 1 Array (True + Foreground 1)
+- Mixed 2 Array (True + Foreground 2)
+Target
+- Clean Array (true cmb) [Mean, Logvar]
+- Foreground 1 Array [Mean, Logvar]
+- Foreground 2 Array [Mean, Logvar]
+
