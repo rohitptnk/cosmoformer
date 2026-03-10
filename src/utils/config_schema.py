@@ -11,9 +11,11 @@ class DataCfg(BaseModel):
     data_dir: str
     raw_dir: str
     processed_dir: str
-    mixed_cls_name: str
-    true_cls_name: str
-    noise_cls_name: str
+    mixed1_name: str
+    mixed2_name: str
+    true_name: str
+    fg1_name: str
+    fg2_name: str
     seq_len: int
     num_workers: int
     pin_memory: bool
@@ -106,6 +108,7 @@ class CheckpointCfg(BaseModel):
 
 
 class Config(BaseModel):
+    description: Optional[str] = None
     experiment: ExperimentCfg
     data: DataCfg
     model: ModelCfg

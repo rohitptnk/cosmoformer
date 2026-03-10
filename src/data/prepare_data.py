@@ -41,35 +41,40 @@ def prepare_and_save(config_path, train_frac=0.8, seed=42, eps=1e-10):
     train_idx = perm[:n_train]
     val_idx = perm[n_train:]
 
-    # compute mean and std from mixed training data
-    # We combine X1 and X2 training data to get a global mean/std for all signals
-    X_train_combined = np.concatenate([X1[train_idx], X2[train_idx]], axis=0)
-    mean = float(X_train_combined.mean())
-    std = float(X_train_combined.std())
-    std = max(std, eps)
+    def process_and_save(arr, name, train_idx, val_idx, out_dir):
+        # Compute mean and std exclusively from training split
+        mean = float(arr[train_idx].mean())
+        std = float(arr[train_idx].std())
+        std = max(std, eps)
 
-    print(f"\nComputed Scaler: mean={mean:.4f}, std={std:.4f}")
-
-    def process_and_save(arr, name, train_idx, val_idx, mean, std, out_dir):
         arr_train = (arr[train_idx] - mean) / std
         arr_val = (arr[val_idx] - mean) / std
+        
         np.save(out_dir / f"{name}_train.npy", arr_train)
         np.save(out_dir / f"{name}_val.npy", arr_val)
-        return arr_train.shape, arr_val.shape
+        
+        return arr_train.shape, arr_val.shape, mean, std
 
     shapes = {}
-    shapes['X1'] = process_and_save(X1, "X1", train_idx, val_idx, mean, std, out_dir)
-    shapes['X2'] = process_and_save(X2, "X2", train_idx, val_idx, mean, std, out_dir)
-    shapes['Y_true'] = process_and_save(Y_true, "Y_true", train_idx, val_idx, mean, std, out_dir)
-    shapes['Y_fg1'] = process_and_save(Y_fg1, "Y_fg1", train_idx, val_idx, mean, std, out_dir)
-    shapes['Y_fg2'] = process_and_save(Y_fg2, "Y_fg2", train_idx, val_idx, mean, std, out_dir)
+    stats = {}
+    
+    for arr, name in [
+        (X1, "X1"), (X2, "X2"), 
+        (Y_true, "Y_true"), (Y_fg1, "Y_fg1"), (Y_fg2, "Y_fg2")
+    ]:
+        tr_shape, val_shape, mean, std = process_and_save(arr, name, train_idx, val_idx, out_dir)
+        shapes[name] = (tr_shape, val_shape)
+        stats[name] = {"mean": mean, "std": std}
 
     print("\n--- Processed Data ---")
     for key, (tr_shape, val_shape) in shapes.items():
         print(f"{key}: train {tr_shape}, val {val_shape}")
 
-    np.save(out_dir / "scaler_mean.npy", np.array([mean], dtype=np.float64))   
-    np.save(out_dir / "scaler_std.npy", np.array([std], dtype=np.float64))   
+    print("\n--- Computed Scalers ---")
+    for key, stat in stats.items():
+        print(f"{key}: mean={stat['mean']:.4f}, std={stat['std']:.4f}")
+        np.save(out_dir / f"{key}_scaler_mean.npy", np.array([stat['mean']], dtype=np.float64))
+        np.save(out_dir / f"{key}_scaler_std.npy", np.array([stat['std']], dtype=np.float64))
 
     print(f"\nSaved processed data to {out_dir}")
     return out_dir

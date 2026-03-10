@@ -110,8 +110,11 @@ def evaluate(config_path: str):
         mean_norm = torch.cat(storage[key]["mean"])
         true_norm = torch.cat(storage[key]["true"])
         
-        mean_orig = val_ds.inverse_transform(mean_norm)
-        true_orig = val_ds.inverse_transform(true_norm)
+        # map generic key to dataset key
+        ds_key = {"clean": "Y_true", "fg1": "Y_fg1", "fg2": "Y_fg2"}[key]
+        
+        mean_orig = val_ds.inverse_transform(mean_norm, key=ds_key)
+        true_orig = val_ds.inverse_transform(true_norm, key=ds_key)
         
         mse = torch.mean((mean_orig - true_orig) ** 2).item()
         print(f"{key.capitalize()} MSE (original units): {mse:.6e}")
@@ -120,7 +123,7 @@ def evaluate(config_path: str):
         if predict_variance and storage[key]["logvar"]:
             logvar_norm = torch.cat(storage[key]["logvar"])
             var_norm = torch.exp(logvar_norm)
-            var_orig = val_ds.var_denormalize(var_norm)
+            var_orig = val_ds.var_denormalize(var_norm, key=ds_key)
             
         results[key] = {
             "mean_orig": mean_orig,

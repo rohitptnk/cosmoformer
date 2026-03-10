@@ -7,13 +7,13 @@ from torch import Tensor
 
 DEFAULT_DTYPE = torch.float32
 
-def _load_scaler(proccessed_dir: Path) -> Tuple[float, float]:
-    """loads the scaler .npy files and returns as python floats"""
+def _load_scaler(proccessed_dir: Path, key: str) -> Tuple[float, float]:
+    """loads the scaler .npy files for a specific signal and returns as python floats"""
 
-    mean_path = proccessed_dir / "scaler_mean.npy"
-    std_path = proccessed_dir / "scaler_std.npy"
+    mean_path = proccessed_dir / f"{key}_scaler_mean.npy"
+    std_path = proccessed_dir / f"{key}_scaler_std.npy"
     if not mean_path.exists() or not std_path.exists():
-        raise FileNotFoundError(f"Scaler files are not found in {proccessed_dir}")
+        raise FileNotFoundError(f"Scaler files for {key} are not found in {proccessed_dir}")
     mean = float(np.load(mean_path)[0])
     std = float(np.load(std_path)[0])
     return mean, std
@@ -49,9 +49,13 @@ class ClDataset(Dataset):
                 raise ValueError(f"Inconsistent shapes in {split} split for {key}: {tensor.shape} vs {ref_shape}")
 
         # load the scalers
-        mean, std = _load_scaler(processed_dir)
-        self.mean = torch.tensor(mean, dtype=dtype)
-        self.std = torch.tensor(std, dtype=dtype)
+        self.scalers = {}
+        for key in files.keys():
+            mean, std = _load_scaler(processed_dir, key)
+            self.scalers[key] = {
+                "mean": torch.tensor(mean, dtype=dtype),
+                "std": torch.tensor(std, dtype=dtype)
+            }
 
     def __len__(self) -> int:
         return self.data["X1"].shape[0]
@@ -60,18 +64,23 @@ class ClDataset(Dataset):
         return (self.data["X1"][idx], self.data["X2"][idx]), \
                (self.data["Y_true"][idx], self.data["Y_fg1"][idx], self.data["Y_fg2"][idx])
         
-    def inverse_transform(self, arr: Union[Tensor, np.ndarray]) -> Tensor:
+    def inverse_transform(self, arr: Union[Tensor, np.ndarray], key: str) -> Tensor:
         if not torch.is_tensor(arr):
-            arr = torch.tensor(arr, dtype=self.mean.dtype)
-        return arr * self.std.to(arr.device) + self.mean.to(arr.device)
+            arr = torch.tensor(arr, dtype=self.scalers[key]["mean"].dtype)
+        
+        mean = self.scalers[key]["mean"].to(arr.device)
+        std = self.scalers[key]["std"].to(arr.device)
+        return arr * std + mean
     
-    def var_denormalize(self, var_norm: Union[Tensor, np.ndarray]) -> Tensor:
+    def var_denormalize(self, var_norm: Union[Tensor, np.ndarray], key: str) -> Tensor:
         """
         Given variance in normalized units (var_norm), convert to original units:
             var_orig = var_norm * std^2
         """
         if not torch.is_tensor(var_norm):
-            var_norm = torch.tensor(var_norm, dtype=self.std.dtype)
-        return var_norm * (self.std.to(var_norm.device)**2)
+            var_norm = torch.tensor(var_norm, dtype=self.scalers[key]["std"].dtype)
+            
+        std = self.scalers[key]["std"].to(var_norm.device)
+        return var_norm * (std**2)
         
 
