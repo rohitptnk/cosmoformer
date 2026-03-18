@@ -59,11 +59,36 @@ python -m src.eval.evaluate
 ## Model Inputs & Targets
 
 **Inputs to Training (2 Arrays)**
-- Mixed 1 Array (True + Foreground 1)
-- Mixed 2 Array (True + Foreground 2)
+- Mixed 1 Array (True + Foreground 1) (Synch at 30GHz)
+- Mixed 2 Array (True + Foreground 2) (Synch at 100GHz)
+- (cmb + fg1 + fg2 + fg3 + det) 
+-
+-
 
 **Predicted Targets (3 Arrays)**
 - Clean Array (true cmb) `[Mean, Logvar]`
-- Foreground 1 Array `[Mean, Logvar]`
-- Foreground 2 Array `[Mean, Logvar]`
+- Net fg 1 Array `[Mean, Logvar]`
+- net fg 2 Array `[Mean, Logvar]`
+-
+-
+-
 
+To do
+
+- [ ] Find freqency of lite bird and echo
+- [ ] Find out how to add Detector noise
+- [ ] Dusts to be added
+    - [*] synchrotron 
+    - [ ] thermal dust
+    - [ ] free free
+- [ ] Train and evaluate for 100 Ghz single head
+
+- [ ] Errors to be added to evaluation
+    - [ ] r2 score
+    - [ ] mse
+    - [ ] correlation
+    - [ ] structural similarity index
+
+
+- [ ] Within 30-150GHZ choose 5 freq with low detector noise from echo or litebird and 
+    - [ ] Make the model for 3fg + det noise
