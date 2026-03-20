@@ -112,11 +112,11 @@ def evaluate(config_path: str):
     noise_mean_norm = torch.cat(all_noise_mean)
     noise_true_norm = torch.cat(all_noise_true)
 
-    clean_mean_orig = val_ds.inverse_transform(clean_mean_norm)
-    clean_true_orig = val_ds.inverse_transform(clean_true_norm)
+    clean_mean_orig = val_ds.inverse_transform_Yc(clean_mean_norm)
+    clean_true_orig = val_ds.inverse_transform_Yc(clean_true_norm)
 
-    noise_mean_orig = val_ds.inverse_transform(noise_mean_norm)
-    noise_true_orig = val_ds.inverse_transform(noise_true_norm)
+    noise_mean_orig = val_ds.inverse_transform_Yn(noise_mean_norm)
+    noise_true_orig = val_ds.inverse_transform_Yn(noise_true_norm)
 
     if predict_variance:
         clean_logvar_norm = torch.cat(all_clean_logvar)
@@ -125,8 +125,8 @@ def evaluate(config_path: str):
         clean_var_norm = torch.exp(clean_logvar_norm)
         noise_var_norm = torch.exp(noise_logvar_norm)
 
-        clean_var_orig = val_ds.var_denormalize(clean_var_norm)
-        noise_var_orig = val_ds.var_denormalize(noise_var_norm)
+        clean_var_orig = val_ds.var_denormalize_Yc(clean_var_norm)
+        noise_var_orig = val_ds.var_denormalize_Yn(noise_var_norm)
     else:
         clean_var_orig = None
         noise_var_orig = None

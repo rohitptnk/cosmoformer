@@ -52,22 +52,31 @@ def prepare_and_save(config_path, train_frac=0.8, seed=42, eps=1e-10):
     Yn_val = Y_noise[val_idx]
 
     # compute mean and std
-    mean = float(X_train.mean())
-    std = float(X_train.std())
-    std = max(std, eps)
+    mean_X = float(X_train.mean())
+    std_X = max(float(X_train.std()), eps)
+
+    mean_Yc = float(Yc_train.mean())
+    std_Yc = max(float(Yc_train.std()), eps)
+
+    mean_Yn = float(Yn_train.mean())
+    std_Yn = max(float(Yn_train.std()), eps)
 
     # standardize all splits
-    X_train_s = (X_train - mean) / std
-    X_val_s = (X_val - mean) / std
+    X_train_s = (X_train - mean_X) / std_X
+    X_val_s = (X_val - mean_X) / std_X
 
-    Yc_train_s = (Yc_train - mean) / std
-    Yc_val_s = (Yc_val - mean) / std
+    Yc_train_s = (Yc_train - mean_Yc) / std_Yc
+    Yc_val_s = (Yc_val - mean_Yc) / std_Yc
 
-    Yn_train_s = (Yn_train - mean) / std
-    Yn_val_s = (Yn_val - mean) / std
+    Yn_train_s = (Yn_train - mean_Yn) / std_Yn
+    Yn_val_s = (Yn_val - mean_Yn) / std_Yn
 
-    print("mean:", mean)
-    print("std:", std)
+    print("mean_X:", mean_X)
+    print("std_X:", std_X)
+    print("mean_Yc:", mean_Yc)
+    print("std_Yc:", std_Yc)
+    print("mean_Yn:", mean_Yn)
+    print("std_Yn:", std_Yn)
 
     print("\n--- Processed Data ---\n")
 
@@ -104,8 +113,14 @@ def prepare_and_save(config_path, train_frac=0.8, seed=42, eps=1e-10):
     np.save(out_dir / "Y_noise_train.npy", Yn_train_s)
     np.save(out_dir / "Y_noise_val.npy", Yn_val_s)
 
-    np.save(out_dir / "scaler_mean.npy", np.array([mean], dtype=np.float64))   
-    np.save(out_dir / "scaler_std.npy", np.array([std], dtype=np.float64))   
+    np.save(out_dir / "scaler_X_mean.npy", np.array([mean_X], dtype=np.float64))   
+    np.save(out_dir / "scaler_X_std.npy", np.array([std_X], dtype=np.float64))   
+
+    np.save(out_dir / "scaler_Yc_mean.npy", np.array([mean_Yc], dtype=np.float64))   
+    np.save(out_dir / "scaler_Yc_std.npy", np.array([std_Yc], dtype=np.float64))   
+
+    np.save(out_dir / "scaler_Yn_mean.npy", np.array([mean_Yn], dtype=np.float64))   
+    np.save(out_dir / "scaler_Yn_std.npy", np.array([std_Yn], dtype=np.float64))   
 
     print(f"Saved processed data to {out_dir}")
     return out_dir

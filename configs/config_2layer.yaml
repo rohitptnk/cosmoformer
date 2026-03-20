@@ -4,11 +4,11 @@ experiment:
 
 data:
   data_dir: ./data
-  raw_dir: ./data/raw/10k_diff
-  processed_dir: ./data/processed/10k_diff
-  mixed_cls_name: mixed_cls_64_10k.npy
-  true_cls_name: true_cls_64_10k.npy
-  noise_cls_name: noise_cls_64_10k.npy
+  raw_dir: ./data/raw/10k_varsynch_100GHz
+  processed_dir: ./data/processed/10k_varsynch_100GHz
+  mixed_cls_name: mixed_64_10k_100GHz.npy
+  true_cls_name: true_64_10k.npy
+  noise_cls_name: fg_64_10k_100GHz.npy
   seq_len: 127
   num_workers: 4
   pin_memory: true
@@ -18,10 +18,10 @@ logging:
   mlflow:
     tracking_uri: file:./mlruns
     experiment_name: cosmoformer
-    run_name: cosmoformer_2layer_10k_diff_50epochs
+    run_name: cosmoformer_2layer_10k_varsynch_50ep_100GHz
 
 checkpoint:
-  checkpoint_dir: ./experiments/cosmoformer_2layer_10k_diff_50epochs
+  checkpoint_dir: ./experiments/cosmoformer_2layer_10k_varsynch_50ep_100GHz
   resume_from: null
 
 model:
