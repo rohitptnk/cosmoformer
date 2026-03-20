@@ -1,9 +1,9 @@
 from pathlib import Path
 import yaml
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 
-def load_config(path: str | Path) -> Dict[str, Any]:
+def load_config(path: Union[str, Path]) -> Dict[str, Any]:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")

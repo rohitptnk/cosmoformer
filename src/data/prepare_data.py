@@ -10,26 +10,38 @@ def prepare_and_save(config_path, train_frac=0.8, seed=42, eps=1e-10):
 
     mixed1_name = cfg["data"].get("mixed1_name", "mixed1.npy")
     mixed2_name = cfg["data"].get("mixed2_name", "mixed2.npy")
+    mixed3_name = cfg["data"].get("mixed3_name", "mixed3.npy")
+    mixed4_name = cfg["data"].get("mixed4_name", "mixed4.npy")
     true_name = cfg["data"].get("true_name", "true.npy")
-    fg1_name = cfg["data"].get("fg1_name", "fg1.npy")
-    fg2_name = cfg["data"].get("fg2_name", "fg2.npy")
+    freq1_name = cfg["data"].get("freq1_name", "freq1.npy")
+    freq2_name = cfg["data"].get("freq2_name", "freq2.npy")
+    freq3_name = cfg["data"].get("freq3_name", "freq3.npy")
+    freq4_name = cfg["data"].get("freq4_name", "freq4.npy")
 
     X1 = np.load(raw_dir / mixed1_name)
     X2 = np.load(raw_dir / mixed2_name)
+    X3 = np.load(raw_dir / mixed3_name)
+    X4 = np.load(raw_dir / mixed4_name)
     Y_true = np.load(raw_dir / true_name)
-    Y_fg1 = np.load(raw_dir / fg1_name)
-    Y_fg2 = np.load(raw_dir / fg2_name)
+    Y_freq1 = np.load(raw_dir / freq1_name)
+    Y_freq2 = np.load(raw_dir / freq2_name)
+    Y_freq3 = np.load(raw_dir / freq3_name)
+    Y_freq4 = np.load(raw_dir / freq4_name)
 
     print("raw mixed1:", X1.shape)
     print("raw mixed2:", X2.shape)
+    print("raw mixed3:", X3.shape)
+    print("raw mixed4:", X4.shape)
     print("raw true:", Y_true.shape)
-    print("raw fg1:", Y_fg1.shape)
-    print("raw fg2:", Y_fg2.shape)
+    print("raw freq1:", Y_freq1.shape)
+    print("raw freq2:", Y_freq2.shape)
+    print("raw freq3:", Y_freq3.shape)
+    print("raw freq4:", Y_freq4.shape)
 
-    if not (X1.shape == X2.shape == Y_true.shape == Y_fg1.shape == Y_fg2.shape):
+    if not (X1.shape == X2.shape == X3.shape == X4.shape == Y_true.shape == Y_freq1.shape == Y_freq2.shape == Y_freq3.shape == Y_freq4.shape):
         raise ValueError(
-            f"Inconsistent shapes: mixed1 {X1.shape}, mixed2 {X2.shape}, "
-            f"true {Y_true.shape}, fg1 {Y_fg1.shape}, fg2 {Y_fg2.shape}"
+            f"Inconsistent shapes: mixed1 {X1.shape}, mixed2 {X2.shape}, mixed3 {X3.shape}, mixed4 {X4.shape}, "
+            f"true {Y_true.shape}, freq1 {Y_freq1.shape}, freq2 {Y_freq2.shape}, freq3 {Y_freq3.shape}, freq4 {Y_freq4.shape}"
         )
 
     # random split
@@ -59,8 +71,8 @@ def prepare_and_save(config_path, train_frac=0.8, seed=42, eps=1e-10):
     stats = {}
     
     for arr, name in [
-        (X1, "X1"), (X2, "X2"), 
-        (Y_true, "Y_true"), (Y_fg1, "Y_fg1"), (Y_fg2, "Y_fg2")
+        (X1, "X1"), (X2, "X2"), (X3, "X3"), (X4, "X4"), 
+        (Y_true, "Y_true"), (Y_freq1, "Y_freq1"), (Y_freq2, "Y_freq2"), (Y_freq3, "Y_freq3"), (Y_freq4, "Y_freq4")
     ]:
         tr_shape, val_shape, mean, std = process_and_save(arr, name, train_idx, val_idx, out_dir)
         shapes[name] = (tr_shape, val_shape)

@@ -6,11 +6,15 @@ This repository contains the training and evaluation code for the CosmoFormer mo
 
 ### Step 1: Place Raw Data
 Create a directory for your raw data (by default `data/raw/10k_diff/`) and place the raw numpy dataset arrays inside it. If you use the default config, name your files as follows:
-- `mixed_cls_64_10k_30GHz.npy` (Mixed 1 Array: True + FG1)
-- `mixed_cls_64_10k_60GHz.npy` (Mixed 2 Array: True + FG2)
+- `mixed_cls_64_10k_30GHz.npy` (Mixed 1 Array: True + Freq 1)
+- `mixed_cls_64_10k_100GHz.npy` (Mixed 2 Array: True + Freq 2)
+- `mixed_cls_64_10k_freq3.npy` (Mixed 3 Array: True + Freq 3)
+- `mixed_cls_64_10k_freq4.npy` (Mixed 4 Array: True + Freq 4)
 - `true_64_10k.npy` (Clean target array - true cmb)
-- `fg1_64_10k.npy` (Foreground 1 target array)
-- `fg2_64_10k.npy` (Foreground 2 target array)
+- `freq1_64_10k.npy` (Frequency 1 target array)
+- `freq2_64_10k.npy` (Frequency 2 target array)
+- `freq3_64_10k.npy` (Frequency 3 target array)
+- `freq4_64_10k.npy` (Frequency 4 target array)
 
 *Note: If you choose to use different names or directories, you must update corresponding fields in the config file.*
 
@@ -20,11 +24,9 @@ Before running the pipelines, update `configs/config_2layer.yaml` according to y
 **Data Configuration (`data` section):**
 - `raw_dir`: Path to the raw dataset directory (matches Step 1)
 - `processed_dir`: Path where processed sequence data will be saved
-- `mixed1_name`: Filename for the first mixed signal array
-- `mixed2_name`: Filename for the second mixed signal array
+- `mixed1_name` to `mixed4_name`: Filenames for the four mixed signal arrays
 - `true_name`: Filename for the clean target array
-- `fg1_name`: Filename for the first foreground target array
-- `fg2_name`: Filename for the second foreground target array
+- `freq1_name` to `freq4_name`: Filenames for the four frequency target arrays
 
 **Logging & Checkpoints:**
 - `run_name`: Name for the MLflow run
@@ -43,7 +45,7 @@ python -m src.data.prepare_data
 ```
 
 ### Step 5: Train the Model
-Start the training loop (which uses `config_2layer.yaml` by default). The model expects two mixed input arrays and predicts three targets.
+Start the training loop (which uses `config_2layer.yaml` by default). The model expects four mixed input arrays and predicts five targets.
 ```bash
 python -m src.training.train
 ```
@@ -58,20 +60,18 @@ python -m src.eval.evaluate
 
 ## Model Inputs & Targets
 
-**Inputs to Training (2 Arrays)**
-- Mixed 1 Array (True + Foreground 1) (Synch at 30GHz)
-- Mixed 2 Array (True + Foreground 2) (Synch at 100GHz)
-- (cmb + fg1 + fg2 + fg3 + det) 
--
--
+**Inputs to Training (4 Arrays)**
+- Mixed 1 Array (True + Foreground at freq1)
+- Mixed 2 Array (True + Foreground at freq2)
+- Mixed 3 Array (True + Foreground at freq3)
+- Mixed 4 Array (True + Foreground at freq4)
 
-**Predicted Targets (3 Arrays)**
+**Predicted Targets (5 Arrays)**
 - Clean Array (true cmb) `[Mean, Logvar]`
-- Net fg 1 Array `[Mean, Logvar]`
-- net fg 2 Array `[Mean, Logvar]`
--
--
--
+- Net fg at freq 1 Array `[Mean, Logvar]`
+- Net fg at freq 2 Array `[Mean, Logvar]`
+- Net fg at freq 3 Array `[Mean, Logvar]`
+- Net fg at freq 4 Array `[Mean, Logvar]`
 
 To do
 

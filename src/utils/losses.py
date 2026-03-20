@@ -25,8 +25,10 @@ def build_loss(cfg):
     loss_type = loss_cfg["type"]
 
     # weights for different loss components
-    lambda_fg1 = loss_cfg.get("lambda_fg1", 1.0)
-    lambda_fg2 = loss_cfg.get("lambda_fg2", 1.0)
+    lambda_freq1 = loss_cfg.get("lambda_freq1", 1.0)
+    lambda_freq2 = loss_cfg.get("lambda_freq2", 1.0)
+    lambda_freq3 = loss_cfg.get("lambda_freq3", 1.0)
+    lambda_freq4 = loss_cfg.get("lambda_freq4", 1.0)
 
     if loss_type == "mse":
         
@@ -34,12 +36,16 @@ def build_loss(cfg):
             c_mean, c_logvar, 
             f1_mean, f1_logvar,
             f2_mean, f2_logvar,
-            y_clean, y_fg1, y_fg2,
+            f3_mean, f3_logvar,
+            f4_mean, f4_logvar,
+            y_clean, y_freq1, y_freq2, y_freq3, y_freq4,
         ):
             loss_clean = mse_loss(c_mean, None, y_clean)
-            loss_fg1 = mse_loss(f1_mean, None, y_fg1)
-            loss_fg2 = mse_loss(f2_mean, None, y_fg2)
-            return loss_clean + lambda_fg1 * loss_fg1 + lambda_fg2 * loss_fg2
+            loss_freq1 = mse_loss(f1_mean, None, y_freq1)
+            loss_freq2 = mse_loss(f2_mean, None, y_freq2)
+            loss_freq3 = mse_loss(f3_mean, None, y_freq3)
+            loss_freq4 = mse_loss(f4_mean, None, y_freq4)
+            return loss_clean + lambda_freq1 * loss_freq1 + lambda_freq2 * loss_freq2 + lambda_freq3 * loss_freq3 + lambda_freq4 * loss_freq4
         
         return loss_fn
      
@@ -50,18 +56,26 @@ def build_loss(cfg):
             c_mean, c_logvar,
             f1_mean, f1_logvar,
             f2_mean, f2_logvar,
-            y_clean, y_fg1, y_fg2,
+            f3_mean, f3_logvar,
+            f4_mean, f4_logvar,
+            y_clean, y_freq1, y_freq2, y_freq3, y_freq4,
         ):
             loss_clean = heteroscedastic_loss(
                 c_mean, c_logvar, y_clean, hetero_cfg,
             )
-            loss_fg1 = heteroscedastic_loss(
-                f1_mean, f1_logvar, y_fg1, hetero_cfg,
+            loss_freq1 = heteroscedastic_loss(
+                f1_mean, f1_logvar, y_freq1, hetero_cfg,
             )
-            loss_fg2 = heteroscedastic_loss(
-                f2_mean, f2_logvar, y_fg2, hetero_cfg,
+            loss_freq2 = heteroscedastic_loss(
+                f2_mean, f2_logvar, y_freq2, hetero_cfg,
             )
-            return loss_clean + lambda_fg1 * loss_fg1 + lambda_fg2 * loss_fg2
+            loss_freq3 = heteroscedastic_loss(
+                f3_mean, f3_logvar, y_freq3, hetero_cfg,
+            )
+            loss_freq4 = heteroscedastic_loss(
+                f4_mean, f4_logvar, y_freq4, hetero_cfg,
+            )
+            return loss_clean + lambda_freq1 * loss_freq1 + lambda_freq2 * loss_freq2 + lambda_freq3 * loss_freq3 + lambda_freq4 * loss_freq4
         
         return loss_fn
     

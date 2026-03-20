@@ -34,26 +34,28 @@ def train_one_epoch(
     model.train()
     total_loss = 0.0
 
-    for (x1, x2), (y_true, y_fg1, y_fg2) in loader:
-        x1, x2 = x1.to(device), x2.to(device)
+    for (x1, x2, x3, x4), (y_true, y_freq1, y_freq2, y_freq3, y_freq4) in loader:
+        x1, x2, x3, x4 = x1.to(device), x2.to(device), x3.to(device), x4.to(device)
         y_true = y_true.to(device)
-        y_fg1 = y_fg1.to(device)
-        y_fg2 = y_fg2.to(device)
+        y_freq1 = y_freq1.to(device)
+        y_freq2 = y_freq2.to(device)
+        y_freq3 = y_freq3.to(device)
+        y_freq4 = y_freq4.to(device)
 
         optimizer.zero_grad(set_to_none=True)
 
         if use_amp:
             with autocast(device_type=device.type):
-                outputs = model(x1, x2)
-                loss = loss_fn(*outputs, y_true, y_fg1, y_fg2)
+                outputs = model(x1, x2, x3, x4)
+                loss = loss_fn(*outputs, y_true, y_freq1, y_freq2, y_freq3, y_freq4)
             
             assert scaler is not None
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
         else:
-            outputs = model(x1, x2)
-            loss = loss_fn(*outputs, y_true, y_fg1, y_fg2)
+            outputs = model(x1, x2, x3, x4)
+            loss = loss_fn(*outputs, y_true, y_freq1, y_freq2, y_freq3, y_freq4)
             loss.backward()
             optimizer.step()
 
@@ -75,14 +77,16 @@ def validate(
     model.eval()
     total_loss = 0.0
 
-    for (x1, x2), (y_true, y_fg1, y_fg2) in loader:
-        x1, x2 = x1.to(device), x2.to(device)
+    for (x1, x2, x3, x4), (y_true, y_freq1, y_freq2, y_freq3, y_freq4) in loader:
+        x1, x2, x3, x4 = x1.to(device), x2.to(device), x3.to(device), x4.to(device)
         y_true = y_true.to(device)
-        y_fg1 = y_fg1.to(device)
-        y_fg2 = y_fg2.to(device)
+        y_freq1 = y_freq1.to(device)
+        y_freq2 = y_freq2.to(device)
+        y_freq3 = y_freq3.to(device)
+        y_freq4 = y_freq4.to(device)
 
-        outputs = model(x1, x2)
-        loss = loss_fn(*outputs, y_true, y_fg1, y_fg2)
+        outputs = model(x1, x2, x3, x4)
+        loss = loss_fn(*outputs, y_true, y_freq1, y_freq2, y_freq3, y_freq4)
         total_loss += loss.item()
 
     return total_loss / len(loader)

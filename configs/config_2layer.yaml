@@ -10,9 +10,13 @@ data:
   processed_dir: ./data/processed/10k_diff
   mixed1_name: mixed_64_10k_30GHz.npy
   mixed2_name: mixed_64_10k_100GHz.npy
+  mixed3_name: mixed_64_10k_freq3.npy
+  mixed4_name: mixed_64_10k_freq4.npy
   true_name: true_64_10k.npy
-  fg1_name: fg_64_10k_30GHz.npy
-  fg2_name: fg_64_10k_100GHz.npy
+  freq1_name: fg_64_10k_30GHz.npy
+  freq2_name: fg_64_10k_100GHz.npy
+  freq3_name: fg_64_10k_freq3.npy
+  freq4_name: fg_64_10k_freq4.npy
   seq_len: 127
   num_workers: 4
   pin_memory: true
@@ -55,8 +59,10 @@ scheduler:
 
 loss:
   type: heteroscedastic
-  lambda_fg1: 1.0
-  lambda_fg2: 1.0
+  lambda_freq1: 1.0
+  lambda_freq2: 1.0
+  lambda_freq3: 1.0
+  lambda_freq4: 1.0
   hetero:
     clamp_logvar: true
     logvar_clamp_min: -20.0

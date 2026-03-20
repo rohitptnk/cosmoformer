@@ -29,9 +29,13 @@ class ClDataset(Dataset):
         files = {
             "X1": f"X1_{split}.npy",
             "X2": f"X2_{split}.npy",
+            "X3": f"X3_{split}.npy",
+            "X4": f"X4_{split}.npy",
             "Y_true": f"Y_true_{split}.npy",
-            "Y_fg1": f"Y_fg1_{split}.npy",
-            "Y_fg2": f"Y_fg2_{split}.npy"
+            "Y_freq1": f"Y_freq1_{split}.npy",
+            "Y_freq2": f"Y_freq2_{split}.npy",
+            "Y_freq3": f"Y_freq3_{split}.npy",
+            "Y_freq4": f"Y_freq4_{split}.npy"
         }
 
         self.data = {}
@@ -60,9 +64,9 @@ class ClDataset(Dataset):
     def __len__(self) -> int:
         return self.data["X1"].shape[0]
         
-    def __getitem__(self, idx: int) -> Tuple[Tuple[Tensor, Tensor], Tuple[Tensor, Tensor, Tensor]]:
-        return (self.data["X1"][idx], self.data["X2"][idx]), \
-               (self.data["Y_true"][idx], self.data["Y_fg1"][idx], self.data["Y_fg2"][idx])
+    def __getitem__(self, idx: int) -> Tuple[Tuple[Tensor, Tensor, Tensor, Tensor], Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]]:
+        return (self.data["X1"][idx], self.data["X2"][idx], self.data["X3"][idx], self.data["X4"][idx]), \
+               (self.data["Y_true"][idx], self.data["Y_freq1"][idx], self.data["Y_freq2"][idx], self.data["Y_freq3"][idx], self.data["Y_freq4"][idx])
         
     def inverse_transform(self, arr: Union[Tensor, np.ndarray], key: str) -> Tensor:
         if not torch.is_tensor(arr):

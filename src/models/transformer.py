@@ -43,8 +43,8 @@ class Transformer1DAutoencoder(nn.Module):
         self.d_model = d_model
         self.predict_variance = predict_variance
 
-        # input embedding (2D scalar → d_model)
-        self.input_proj = nn.Linear(2, d_model)
+        # input embedding (4D scalar → d_model)
+        self.input_proj = nn.Linear(4, d_model)
 
         # positional encoding
         self.pos_encoder = LearnablePositionalEncoding(d_model, seq_len)
@@ -65,14 +65,17 @@ class Transformer1DAutoencoder(nn.Module):
         )
 
         # output heads
-        self.clean_mean_head = nn.Linear(d_model, 1)
-        self.clean_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+        self.freq1_mean_head = nn.Linear(d_model, 1)
+        self.freq1_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
 
-        self.fg1_mean_head = nn.Linear(d_model, 1)
-        self.fg1_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+        self.freq2_mean_head = nn.Linear(d_model, 1)
+        self.freq2_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
 
-        self.fg2_mean_head = nn.Linear(d_model, 1)
-        self.fg2_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+        self.freq3_mean_head = nn.Linear(d_model, 1)
+        self.freq3_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+
+        self.freq4_mean_head = nn.Linear(d_model, 1)
+        self.freq4_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
 
         self._init_weights()
 
@@ -82,20 +85,20 @@ class Transformer1DAutoencoder(nn.Module):
                 nn.init.xavier_uniform_(m.weight)
                 nn.init.zeros_(m.bias)
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, x3, x4):
         """
-        x1, x2: (batch, seq_len)
+        x1, x2, x3, x4: (batch, seq_len)
         """
-        if x1.dim() != 2 or x2.dim() != 2:
-            raise ValueError(f"Expected (B, L), got {x1.shape} and {x2.shape}")
+        if x1.dim() != 2 or x2.dim() != 2 or x3.dim() != 2 or x4.dim() != 2:
+            raise ValueError(f"Expected (B, L), got {x1.shape}, {x2.shape}, {x3.shape}, and {x4.shape}")
         
         if x1.size(1) > self.seq_len:
             raise ValueError(
                 f"Input sequence length {x1.size(1)} exceeds model seq_len {self.seq_len}"
             )
 
-        # Stack as features: (batch, seq_len, 2)
-        x = torch.stack([x1, x2], dim=-1)
+        # Stack as features: (batch, seq_len, 4)
+        x = torch.stack([x1, x2, x3, x4], dim=-1)
         
         x = self.input_proj(x)  # (batch, seq_len, d_model)
         x = self.pos_encoder(x)  # add positional encoding
@@ -109,7 +112,9 @@ class Transformer1DAutoencoder(nn.Module):
             return mean, logvar
 
         c_mean, c_logvar = get_output(self.clean_mean_head, self.clean_logvar_head, x)
-        f1_mean, f1_logvar = get_output(self.fg1_mean_head, self.fg1_logvar_head, x)
-        f2_mean, f2_logvar = get_output(self.fg2_mean_head, self.fg2_logvar_head, x)
+        f1_mean, f1_logvar = get_output(self.freq1_mean_head, self.freq1_logvar_head, x)
+        f2_mean, f2_logvar = get_output(self.freq2_mean_head, self.freq2_logvar_head, x)
+        f3_mean, f3_logvar = get_output(self.freq3_mean_head, self.freq3_logvar_head, x)
+        f4_mean, f4_logvar = get_output(self.freq4_mean_head, self.freq4_logvar_head, x)
             
-        return c_mean, c_logvar, f1_mean, f1_logvar, f2_mean, f2_logvar
+        return c_mean, c_logvar, f1_mean, f1_logvar, f2_mean, f2_logvar, f3_mean, f3_logvar, f4_mean, f4_logvar

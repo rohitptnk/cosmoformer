@@ -13,9 +13,13 @@ class DataCfg(BaseModel):
     processed_dir: str
     mixed1_name: str
     mixed2_name: str
+    mixed3_name: str
+    mixed4_name: str
     true_name: str
-    fg1_name: str
-    fg2_name: str
+    freq1_name: str
+    freq2_name: str
+    freq3_name: str
+    freq4_name: str
     seq_len: int
     num_workers: int
     pin_memory: bool

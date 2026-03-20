@@ -81,29 +81,41 @@ def evaluate(config_path: str):
     # Storage
     storage = {
         "clean": {"mean": [], "logvar": [], "true": []},
-        "fg1": {"mean": [], "logvar": [], "true": []},
-        "fg2": {"mean": [], "logvar": [], "true": []},
+        "freq1": {"mean": [], "logvar": [], "true": []},
+        "freq2": {"mean": [], "logvar": [], "true": []},
+        "freq3": {"mean": [], "logvar": [], "true": []},
+        "freq4": {"mean": [], "logvar": [], "true": []},
     }
 
-    for (x1, x2), (y_clean, y_fg1, y_fg2) in val_loader:
-        x1, x2 = x1.to(device), x2.to(device)
+    for (x1, x2, x3, x4), (y_clean, y_freq1, y_freq2, y_freq3, y_freq4) in val_loader:
+        x1, x2, x3, x4 = x1.to(device), x2.to(device), x3.to(device), x4.to(device)
         y_clean = y_clean.to(device)
-        y_fg1 = y_fg1.to(device)
-        y_fg2 = y_fg2.to(device)
+        y_freq1 = y_freq1.to(device)
+        y_freq2 = y_freq2.to(device)
+        y_freq3 = y_freq3.to(device)
+        y_freq4 = y_freq4.to(device)
 
-        c_m, c_v, f1_m, f1_v, f2_m, f2_v = model(x1, x2)
+        c_m, c_v, f1_m, f1_v, f2_m, f2_v, f3_m, f3_v, f4_m, f4_v = model(x1, x2, x3, x4)
 
         storage["clean"]["mean"].append(c_m.cpu())
         storage["clean"]["true"].append(y_clean.cpu())
         if c_v is not None: storage["clean"]["logvar"].append(c_v.cpu())
 
-        storage["fg1"]["mean"].append(f1_m.cpu())
-        storage["fg1"]["true"].append(y_fg1.cpu())
-        if f1_v is not None: storage["fg1"]["logvar"].append(f1_v.cpu())
+        storage["freq1"]["mean"].append(f1_m.cpu())
+        storage["freq1"]["true"].append(y_freq1.cpu())
+        if f1_v is not None: storage["freq1"]["logvar"].append(f1_v.cpu())
 
-        storage["fg2"]["mean"].append(f2_m.cpu())
-        storage["fg2"]["true"].append(y_fg2.cpu())
-        if f2_v is not None: storage["fg2"]["logvar"].append(f2_v.cpu())
+        storage["freq2"]["mean"].append(f2_m.cpu())
+        storage["freq2"]["true"].append(y_freq2.cpu())
+        if f2_v is not None: storage["freq2"]["logvar"].append(f2_v.cpu())
+
+        storage["freq3"]["mean"].append(f3_m.cpu())
+        storage["freq3"]["true"].append(y_freq3.cpu())
+        if f3_v is not None: storage["freq3"]["logvar"].append(f3_v.cpu())
+
+        storage["freq4"]["mean"].append(f4_m.cpu())
+        storage["freq4"]["true"].append(y_freq4.cpu())
+        if f4_v is not None: storage["freq4"]["logvar"].append(f4_v.cpu())
 
     results = {}
     for key in storage:
@@ -111,7 +123,7 @@ def evaluate(config_path: str):
         true_norm = torch.cat(storage[key]["true"])
         
         # map generic key to dataset key
-        ds_key = {"clean": "Y_true", "fg1": "Y_fg1", "fg2": "Y_fg2"}[key]
+        ds_key = {"clean": "Y_true", "freq1": "Y_freq1", "freq2": "Y_freq2", "freq3": "Y_freq3", "freq4": "Y_freq4"}[key]
         
         mean_orig = val_ds.inverse_transform(mean_norm, key=ds_key)
         true_orig = val_ds.inverse_transform(true_norm, key=ds_key)
