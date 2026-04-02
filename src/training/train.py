@@ -289,6 +289,9 @@ def train(config_path: Union[str, Path]):
 # Script usage
 if __name__ == "__main__":
     from src.utils.config_utils import load_config
+    import time
+
+    start_time = time.time()
 
     config_path = "configs/config_2layer.yaml"
     print(f"Using config: {config_path}")
@@ -299,3 +302,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Training failed with exception: {e}")
         raise e
+    
+    end_time = time.time()
+    elapsed_time = (end_time-start_time)/60
+    print(f"It took {elapsed_time:.4f} minutes.")

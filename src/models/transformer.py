@@ -65,6 +65,9 @@ class Transformer1DAutoencoder(nn.Module):
         )
 
         # output heads
+        self.clean_mean_head = nn.Linear(d_model, 1)
+        self.clean_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
+        
         self.freq1_mean_head = nn.Linear(d_model, 1)
         self.freq1_logvar_head = nn.Linear(d_model, 1) if predict_variance else None
 

@@ -6,15 +6,15 @@ This repository contains the training and evaluation code for the CosmoFormer mo
 
 ### Step 1: Place Raw Data
 Create a directory for your raw data (by default `data/raw/10k_diff/`) and place the raw numpy dataset arrays inside it. If you use the default config, name your files as follows:
-- `mixed_cls_64_10k_30GHz.npy` (Mixed 1 Array: True + Freq 1)
-- `mixed_cls_64_10k_100GHz.npy` (Mixed 2 Array: True + Freq 2)
-- `mixed_cls_64_10k_freq3.npy` (Mixed 3 Array: True + Freq 3)
-- `mixed_cls_64_10k_freq4.npy` (Mixed 4 Array: True + Freq 4)
+- `mixed_64_10k_30GHz.npy` (Mixed 1 Array: True + Freq 1)
+- `mixed_64_10k_100GHz.npy` (Mixed 2 Array: True + Freq 2)
+- `mixed_64_10k_freq3.npy` (Mixed 3 Array: True + Freq 3)
+- `mixed_64_10k_freq4.npy` (Mixed 4 Array: True + Freq 4)
 - `true_64_10k.npy` (Clean target array - true cmb)
-- `freq1_64_10k.npy` (Frequency 1 target array)
-- `freq2_64_10k.npy` (Frequency 2 target array)
-- `freq3_64_10k.npy` (Frequency 3 target array)
-- `freq4_64_10k.npy` (Frequency 4 target array)
+- `fg_64_10k.npy` (Frequency 1 target array)
+- `fg_64_10k.npy` (Frequency 2 target array)
+- `fg_64_10k.npy` (Frequency 3 target array)
+- `fg_64_10k.npy` (Frequency 4 target array)
 
 *Note: If you choose to use different names or directories, you must update corresponding fields in the config file.*
 
@@ -75,13 +75,12 @@ python -m src.eval.evaluate
 
 To do
 
-- [ ] Find freqency of lite bird and echo
+- [*] Find freqency of lite bird and echo
 - [ ] Find out how to add Detector noise
 - [ ] Dusts to be added
     - [*] synchrotron 
     - [ ] thermal dust
     - [ ] free free
-- [ ] Train and evaluate for 100 Ghz single head
 
 - [ ] Errors to be added to evaluation
     - [ ] r2 score
@@ -89,6 +88,3 @@ To do
     - [ ] correlation
     - [ ] structural similarity index
 
-
-- [ ] Within 30-150GHZ choose 5 freq with low detector noise from echo or litebird and 
-    - [ ] Make the model for 3fg + det noise

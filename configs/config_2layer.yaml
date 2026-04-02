@@ -1,4 +1,4 @@
-description: "Multi-foreground transformer with 2 transformer layers trained on 10k dataset with varying synchrotron at 30GHz and 100GHz for 50 epochs."
+description: "Multi-foreground transformer with 2 transformer layers trained on 10k dataset with s1, d1 and f1 combined together at 100GHz, 119GHz, 140GHz, 166GHz for 50 epochs."
 
 experiment:
   seed: 42
@@ -6,17 +6,17 @@ experiment:
 
 data:
   data_dir: ./data
-  raw_dir: ./data/raw/10k_diff
-  processed_dir: ./data/processed/10k_diff
-  mixed1_name: mixed_64_10k_30GHz.npy
-  mixed2_name: mixed_64_10k_100GHz.npy
-  mixed3_name: mixed_64_10k_freq3.npy
-  mixed4_name: mixed_64_10k_freq4.npy
-  true_name: true_64_10k.npy
-  freq1_name: fg_64_10k_30GHz.npy
-  freq2_name: fg_64_10k_100GHz.npy
-  freq3_name: fg_64_10k_freq3.npy
-  freq4_name: fg_64_10k_freq4.npy
+  raw_dir: ./data/raw/10k_multifg
+  processed_dir: ./data/processed/10k_multifg
+  mixed1_name: mixed_64_10k_100GHz.npy
+  mixed2_name: mixed_64_10k_119GHz.npy
+  mixed3_name: mixed_64_10k_140GHz.npy
+  mixed4_name: mixed_64_10k_166GHz.npy
+  true_name: true_64_10k_100GHz.npy
+  freq1_name: fg_64_10k_100GHz.npy
+  freq2_name: fg_64_10k_119GHz.npy
+  freq3_name: fg_64_10k_140GHz.npy
+  freq4_name: fg_64_10k_166GHz.npy
   seq_len: 127
   num_workers: 4
   pin_memory: true
@@ -26,10 +26,10 @@ logging:
   mlflow:
     tracking_uri: file:./mlruns
     experiment_name: cosmoformer
-    run_name: cformer_2l_10k_diff_30GHz_100GHz_synch_50ep
+    run_name: cformer_2l_10k_multifg_50ep
 
 checkpoint:
-  checkpoint_dir: ./experiments/cformer_2l_10k_diff_30GHz_100GHz_synch_50ep
+  checkpoint_dir: ./experiments/cformer_2l_10k_multifg_50ep
   resume_from: null
 
 model:
