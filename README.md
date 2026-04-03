@@ -88,3 +88,16 @@ To do
     - [ ] correlation
     - [ ] structural similarity index
 
+### Model Parameters (Scaling)
+The parameter counts are calculated based on a `d_model` of 512, `d_ff` of 2048, and a sequence length of 127. Each additional layer adds approximately **3.15M** parameters.
+
+| Layers | Total Parameters | Approx. Size |
+| :---: | :---: | :---: |
+| 2 | 6,377,482 | 6.4M |
+| 4 | 12,682,250 | 12.7M |
+| 6 | 18,987,018 | 19.0M |
+| 8 | 25,291,786 | 25.3M |
+| 10 | 31,596,554 | 31.6M |
+| 12 | 37,901,322 | 37.9M |
+| 14 | 44,206,090 | 44.2M |
+| 16 | 50,510,858 | 50.5M |
