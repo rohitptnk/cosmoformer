@@ -193,7 +193,7 @@ def evaluate(config_path: str):
 if __name__ == "__main__":
     from src.utils.config_utils import load_config
 
-    config_path = "configs/config_2layer.yaml"
+    config_path = "configs/config.yaml"
     print(f"Using config: {config_path}")
     print("Starting evaluation...")
 

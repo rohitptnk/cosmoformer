@@ -1,4 +1,4 @@
-description: "Multi-foreground transformer with 2 transformer layers trained on 10k dataset with s1, d1 and f1 combined together at 100GHz, 119GHz, 140GHz, 166GHz for 50 epochs."
+description: "Multi-foreground transformer with 4 transformer layers trained on 10k dataset with s1, d1 and f1 combined together at 100GHz, 119GHz, 140GHz, 166GHz for 50 epochs."
 
 experiment:
   seed: 42
@@ -26,10 +26,10 @@ logging:
   mlflow:
     tracking_uri: file:./mlruns
     experiment_name: cosmoformer
-    run_name: cformer_2l_10k_multifg_50ep
+    run_name: cformer_4l_10k_multifg_50ep
 
 checkpoint:
-  checkpoint_dir: ./experiments/cformer_2l_10k_multifg_50ep
+  checkpoint_dir: ./experiments/cformer_4l_10k_multifg_50ep
   resume_from: null
 
 model:
@@ -38,7 +38,7 @@ model:
   d_ff: 2048
   dropout: 0.1
   pre_ln: true
-  n_layers: 2
+  n_layers: 4
   predict_variance: True
 
 training:
@@ -59,12 +59,13 @@ scheduler:
 
 loss:
   type: heteroscedastic
+  lambda_clean: 1.0
   lambda_freq1: 1.0
   lambda_freq2: 1.0
   lambda_freq3: 1.0
   lambda_freq4: 1.0
   hetero:
     clamp_logvar: true
-    logvar_clamp_min: -20.0
-    logvar_clamp_max: 20.0
+    logvar_clamp_min: -10.0
+    logvar_clamp_max: 1.0
 

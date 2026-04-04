@@ -293,7 +293,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    config_path = "configs/config_2layer.yaml"
+    config_path = "configs/config.yaml"
     print(f"Using config: {config_path}")
     print("Starting training...")
     try:
@@ -304,5 +304,5 @@ if __name__ == "__main__":
         raise e
     
     end_time = time.time()
-    elapsed_time = (end_time-start_time)/60
-    print(f"It took {elapsed_time:.4f} minutes.")
+    elapsed_time = (end_time-start_time)/3600
+    print(f"It took {elapsed_time:.2f} hours.")

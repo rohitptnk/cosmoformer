@@ -25,6 +25,7 @@ def build_loss(cfg):
     loss_type = loss_cfg["type"]
 
     # weights for different loss components
+    lambda_clean = loss_cfg.get("lambda_clean", 1.0)
     lambda_freq1 = loss_cfg.get("lambda_freq1", 1.0)
     lambda_freq2 = loss_cfg.get("lambda_freq2", 1.0)
     lambda_freq3 = loss_cfg.get("lambda_freq3", 1.0)
@@ -45,7 +46,7 @@ def build_loss(cfg):
             loss_freq2 = mse_loss(f2_mean, None, y_freq2)
             loss_freq3 = mse_loss(f3_mean, None, y_freq3)
             loss_freq4 = mse_loss(f4_mean, None, y_freq4)
-            return loss_clean + lambda_freq1 * loss_freq1 + lambda_freq2 * loss_freq2 + lambda_freq3 * loss_freq3 + lambda_freq4 * loss_freq4
+            return lambda_clean * loss_clean + lambda_freq1 * loss_freq1 + lambda_freq2 * loss_freq2 + lambda_freq3 * loss_freq3 + lambda_freq4 * loss_freq4
         
         return loss_fn
      
@@ -75,7 +76,7 @@ def build_loss(cfg):
             loss_freq4 = heteroscedastic_loss(
                 f4_mean, f4_logvar, y_freq4, hetero_cfg,
             )
-            return loss_clean + lambda_freq1 * loss_freq1 + lambda_freq2 * loss_freq2 + lambda_freq3 * loss_freq3 + lambda_freq4 * loss_freq4
+            return lambda_clean * loss_clean + lambda_freq1 * loss_freq1 + lambda_freq2 * loss_freq2 + lambda_freq3 * loss_freq3 + lambda_freq4 * loss_freq4
         
         return loss_fn
     

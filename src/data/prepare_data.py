@@ -93,7 +93,7 @@ def prepare_and_save(config_path, train_frac=0.8, seed=42, eps=1e-10):
 
 if __name__ == "__main__":
 
-    config_path = "configs/config_2layer.yaml"
+    config_path = "configs/config.yaml"
     prepare_and_save(config_path)
 
     
